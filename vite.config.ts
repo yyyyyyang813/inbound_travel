@@ -1,27 +1,12 @@
-import vinext from "vinext";
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import hostingConfig from "./.openai/hosting.json";
-import { sites } from "./build/sites-vite-plugin";
 
-const { d1, r2 } = hostingConfig;
-const placeholder = "00000000-0000-4000-8000-000000000000";
-
-export default defineConfig(async () => {
-  process.env.WRANGLER_WRITE_LOGS ??= "false";
-  const { cloudflare } = await import("@cloudflare/vite-plugin");
-  return {
-    plugins: [
-      vinext(),
-      sites(),
-      cloudflare({
-        viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
-        config: {
-          main: "./worker/index.ts",
-          compatibility_flags: ["nodejs_compat"],
-          d1_databases: d1 ? [{ binding: d1, database_name: "loop-db", database_id: placeholder }] : [],
-          r2_buckets: r2 ? [{ binding: r2, bucket_name: "loop-assets" }] : []
-        }
-      })
-    ]
-  };
+export default defineConfig({
+  root: "pages",
+  base: "/inbound_travel/",
+  plugins: [react()],
+  build: {
+    outDir: "../pages-dist",
+    emptyOutDir: true,
+  },
 });
