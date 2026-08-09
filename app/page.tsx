@@ -9,15 +9,17 @@ type Tour = {
   mapLabel: string; comments: Review[]; steps: { time: string; title: string; copy: string }[];
 };
 
+const buddyImage = (file: string) => `${import.meta.env.BASE_URL}buddies/${file}`;
+
 const IMAGES = {
   people: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=88&w=1800",
   friends: "https://images.unsplash.com/photo-1511988617509-a57c8a288659?auto=format&fit=crop&q=85&w=1600",
   team: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&q=85&w=1600",
   art: "https://images.unsplash.com/photo-1752649937266-1900d9e176c3?auto=format&fit=crop&q=85&w=1600",
-  sarah: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=85&w=800",
-  leo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=85&w=800",
-  kevin: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=85&w=800",
-  mei: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=85&w=800",
+  sarah: buddyImage("sarah.jpg"),
+  leo: buddyImage("leo.jpg"),
+  kevin: buddyImage("kevin.jpg"),
+  mei: buddyImage("mei.jpg"),
   lina: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=85&w=800",
   city: "https://images.unsplash.com/photo-1644659276747-f303ddf78463?auto=format&fit=crop&q=85&w=1800"
 };
@@ -189,8 +191,13 @@ function TourView({ tour, favorite, toggleFavorite }: { tour: Tour; favorite: bo
 
 function BuddyView() {
   const [sent, setSent] = useState(false);
-  return <div className="buddy-page"><section className="buddy-hero"><div><p className="eyebrow">Become a China Buddy</p><h1>Show your China.<br/><i>Your way.</i></h1><p>Host small, meaningful experiences with Arctic Tern. You bring the local point of view; we help with international guests, presentation and support.</p><button onClick={() => document.getElementById("buddy-apply")?.scrollIntoView({ behavior: "smooth" })}>Start your application ↓</button></div><div className="buddy-collage"><img src={IMAGES.sarah} alt="Sarah, Shenzhen buddy"/><img src={IMAGES.leo} alt="Leo, Shenzhen buddy"/><img src={IMAGES.mei} alt="Mei, Guangzhou buddy"/></div></section>
-    <section className="active-buddies"><div className="section-heading"><div><p className="eyebrow">Already in the community</p><h2>Meet a few of our buddies.</h2></div><p>Artists, food lovers, engineers and storytellers—each with a personal door into China.</p></div><div className="buddy-grid">{buddies.map((buddy) => <article key={buddy.name}><img src={buddy.image} alt={buddy.name}/><div><p className="eyebrow">{buddy.city} · {buddy.tours} tours</p><h3>{buddy.name}</h3><p>{buddy.focus}</p><span>✓ Verified buddy</span></div></article>)}</div></section>
+  return <div className="buddy-page">
+    <section className="buddy-hero">
+      <div className="buddy-hero-copy"><p className="eyebrow">Become a China Buddy</p><h1>Show your China.<br/><i>Your way.</i></h1><p>Host small, meaningful experiences with Arctic Tern. You bring the local point of view; we help with international guests, presentation and support.</p><button onClick={() => document.getElementById("buddy-apply")?.scrollIntoView({ behavior: "smooth" })}>Start your application ↓</button></div>
+      <div className="buddy-hero-visual"><img src={IMAGES.sarah} alt="Sarah, a verified Shenzhen Buddy"/><div className="buddy-hero-profile"><span className="profile-status"/><div><small>Meet Sarah · Shenzhen</small><b>“I help guests read the city between the landmarks.”</b></div></div><div className="buddy-hero-stat"><strong>392</strong><span>guest days<br/>hosted locally</span></div></div>
+    </section>
+    <section className="buddy-proof"><p>Built for people with a point of view—not professional tour scripts.</p><div><span><b>4.98</b> guest rating</span><span><b>4–8</b> guests per group</span><span><b>24h</b> local support</span></div></section>
+    <section className="active-buddies"><div className="section-heading"><div><p className="eyebrow">Already in the community</p><h2>Four locals.<br/>Four ways into China.</h2></div><p>Artists, food lovers, engineers and storytellers—each with a personal door into the city.</p></div><div className="buddy-grid">{buddies.map((buddy, index) => <article key={buddy.name}><div className="buddy-card-photo"><img src={buddy.image} alt={`${buddy.name}, Arctic Tern Buddy in ${buddy.city}`}/><span>{String(index + 1).padStart(2, "0")} · {buddy.city}</span></div><div className="buddy-card-copy"><p className="eyebrow">{buddy.tours} guest days hosted</p><h3>{buddy.name}</h3><p>{buddy.focus}</p><span className="buddy-verified">✓ Identity & experience verified</span></div></article>)}</div></section>
     <section className="buddy-values"><article><span>01</span><h3>Host what you know</h3><p>Build around your real interests, neighborhood and relationships.</p></article><article><span>02</span><h3>Choose your rhythm</h3><p>Set your own dates, group size and availability.</p></article><article><span>03</span><h3>We handle the bridge</h3><p>Arctic Tern supports presentation, guest communication and trust.</p></article></section>
     <section className="apply-section" id="buddy-apply"><div><p className="eyebrow">Introduce yourself</p><h2>{sent ? "Thanks—we’ll be in touch." : "What would you show a new friend?"}</h2><p>{sent ? "Our Buddy team will review your note and reply within three working days." : "A short note is enough to start. No polished tour plan required."}</p></div>{!sent && <form onSubmit={(e) => { e.preventDefault(); setSent(true); }}><div className="form-two"><label>Your name<input required placeholder="Full name"/></label><label>City<input required placeholder="Where are you based?"/></label></div><label>Email or WeChat<input required placeholder="How should we reach you?"/></label><label>Your experience idea<textarea required placeholder="Tell us what you know, love or want to share…"/></label><button className="primary">Send introduction ↗</button></form>}</section>
   </div>;
