@@ -6,8 +6,8 @@ const TOKEN_STORAGE_KEY = "arctic-tern-wix-tokens";
 const OAUTH_DATA_KEY = "arctic-tern-wix-oauth-data";
 
 export const WIX_COLLECTIONS = {
-  experiences: import.meta.env.VITE_WIX_EXPERIENCES_COLLECTION_ID || "Experiences",
-  buddies: import.meta.env.VITE_WIX_BUDDIES_COLLECTION_ID || "Buddies",
+  experiences: import.meta.env.VITE_WIX_EXPERIENCES_COLLECTION_ID || "Import1",
+  buddies: import.meta.env.VITE_WIX_BUDDIES_COLLECTION_ID || "Import2",
   bookingRequests: import.meta.env.VITE_WIX_BOOKINGS_COLLECTION_ID || "BookingRequests",
 };
 
@@ -15,7 +15,10 @@ export type WixContentItem = Record<string, unknown> & { _id?: string };
 
 export function wixImageUrl(value: unknown, fallback: string) {
   if (typeof value !== "string" || !value) return fallback;
-  if (!value.startsWith("wix:image://")) return value;
+  if (!value.startsWith("wix:image://")) {
+    if (/^(https?:|data:|\/)/.test(value)) return value;
+    return `${import.meta.env.BASE_URL}${value.replace(/^\.\//, "")}`;
+  }
   try {
     return media.getImageUrl(value).url;
   } catch {
