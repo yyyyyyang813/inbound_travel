@@ -2,6 +2,7 @@
   "name": "arctic-tern-china-buddy",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@11.16.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -9,6 +10,9 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@wix/data": "^1.0.503",
+    "@wix/members": "^1.0.498",
+    "@wix/sdk": "^1.21.14",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
@@ -18,5 +22,8 @@
     "@vitejs/plugin-react": "6.0.2",
     "typescript": "5.9.3",
     "vite": "8.0.13"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
   }
 }
