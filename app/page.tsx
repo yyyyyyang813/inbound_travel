@@ -112,11 +112,17 @@ const textField = (item: WixContentItem, key: string, fallback: string) =>
 const numberField = (item: WixContentItem, key: string, fallback: number) =>
   typeof item[key] === "number" ? Number(item[key]) : fallback;
 
-function mergeWixTours(items: WixContentItem[]) {
+function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[]) {
   if (!items.length) return tours;
-  return items.map((item, index): Tour => {
+  const buddiesBySlug = new Map(buddyItems.map((buddy) => [textField(buddy, "slug", ""), buddy]));
+  return [...items]
+    .filter((item) => item.active !== false)
+    .sort((a, b) => numberField(a, "sortOrder", 999) - numberField(b, "sortOrder", 999))
+    .map((item, index): Tour => {
     const slug = textField(item, "slug", textField(item, "id", `wix-experience-${index + 1}`));
     const fallback = tours.find((tour) => tour.id === slug) || tours[index % tours.length];
+    const cmsBuddy = buddiesBySlug.get(textField(item, "buddySlug", ""));
+    const rating = numberField(item, "rating", Number(fallback.rating));
     return {
       ...fallback,
       id: slug,
@@ -124,17 +130,17 @@ function mergeWixTours(items: WixContentItem[]) {
       kicker: textField(item, "kicker", fallback.kicker),
       title: textField(item, "title", fallback.title),
       duration: textField(item, "duration", fallback.duration),
-      rating: textField(item, "rating", fallback.rating),
-      reviews: numberField(item, "reviews", fallback.reviews),
+      rating: rating.toFixed(2),
+      reviews: numberField(item, "reviewCount", numberField(item, "reviews", fallback.reviews)),
       city: textField(item, "city", fallback.city),
-      price: numberField(item, "price", fallback.price),
-      image: wixImageUrl(item.image, fallback.image),
-      image2: wixImageUrl(item.image2, fallback.image2),
-      host: textField(item, "buddyName", fallback.host),
-      hostImage: wixImageUrl(item.buddyImage, fallback.hostImage),
-      role: textField(item, "buddyRole", fallback.role),
+      price: numberField(item, "priceUsd", numberField(item, "price", fallback.price)),
+      image: wixImageUrl(item.heroImageUrl ?? item.image, fallback.image),
+      image2: wixImageUrl(item.secondaryImageUrl ?? item.image2, fallback.image2),
+      host: cmsBuddy ? textField(cmsBuddy, "name", fallback.host) : textField(item, "buddyName", fallback.host),
+      hostImage: cmsBuddy ? wixImageUrl(cmsBuddy.avatarPath, fallback.hostImage) : wixImageUrl(item.buddyImage, fallback.hostImage),
+      role: cmsBuddy ? textField(cmsBuddy, "role", fallback.role) : textField(item, "buddyRole", fallback.role),
       intro: textField(item, "intro", fallback.intro),
-      group: textField(item, "groupSize", fallback.group),
+      group: textField(item, "group", textField(item, "groupSize", fallback.group)),
       quote: textField(item, "quote", fallback.quote),
       map: textField(item, "mapUrl", fallback.map),
       mapLabel: textField(item, "mapLabel", fallback.mapLabel),
@@ -146,14 +152,14 @@ function mergeWixTours(items: WixContentItem[]) {
 
 function mergeWixBuddies(items: WixContentItem[]) {
   if (!items.length) return buddies;
-  return items.map((item, index): Buddy => {
+  return items.filter((item) => textField(item, "status", "active").toLowerCase() === "active").map((item, index): Buddy => {
     const fallback = buddies[index % buddies.length];
     return {
       name: textField(item, "name", fallback.name),
-      image: wixImageUrl(item.photo, fallback.image),
+      image: wixImageUrl(item.avatarPath ?? item.photo, fallback.image),
       focus: textField(item, "focus", fallback.focus),
       city: textField(item, "city", fallback.city),
-      tours: numberField(item, "guestDays", fallback.tours),
+      tours: numberField(item, "guestDaysHosted", numberField(item, "guestDays", fallback.tours)),
     };
   });
 }
@@ -215,7 +221,7 @@ export default function App() {
     let active = true;
     void initializeWix().then(({ catalog, loginError }) => {
       if (!active) return;
-      setCatalogTours(mergeWixTours(catalog.experiences));
+      setCatalogTours(mergeWixTours(catalog.experiences, catalog.buddies));
       setCatalogBuddies(mergeWixBuddies(catalog.buddies));
       setWixConnected(catalog.connected);
       setMemberLoggedIn(isWixMemberLoggedIn());
@@ -281,9 +287,7 @@ function HomeView({ category, setCategory, city, setCity, query, setQuery, filte
     <section className="hero">
       <div className="hero-copy"><p className="eyebrow">Arctic Tern presents · China Buddy</p><h1>Meet China through<br/><i>someone local.</i></h1><p className="hero-lede">Not just a guide. A real person who knows the shortcuts, stories and tables—and helps China feel easy from the first hello.</p><div className="hero-stats"><span><b>4.98</b> average rating</span><span><b>100%</b> locally hosted</span><span><b>24h</b> human response</span></div></div>
       <div className="hero-image"><img src={IMAGES.people} alt="Local buddies and travelers sharing a day together"/><div className="hero-buddy"><img src={IMAGES.sarah} alt="Sarah Zhao"/><span><small>Your China Buddy</small><b>Sarah · Shenzhen</b></span></div><span className="image-label">People make the place</span></div>
-      <div className="search-dock"><label><span>City</span><select value={city} onChange={(e) => setCity(e.target.value)}>{cities.map((item) => <option key={item}>{item}</option>)}</select></label><label><span>What interests you?</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Art, food or technology"/></label><label><span>When</span><input type="date" /></label><label><span>Experience</span><select value={category} onChange={(e) => setCategory(e.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label><button onClick={() => document.getElementById("experiences")?.scrollIntoView({ behavior: "smooth" })}>Find a buddy ↗</button></div>
-    </section>
-    <section className="people-strip"><div><p className="eyebrow">A familiar face in a new city</p><h2>Come for China.<br/>Remember the people.</h2></div><div className="people-stack">{buddies.slice(0,4).map((buddy) => <img key={buddy.name} src={buddy.image} alt={buddy.name}/>)}</div><p>Every experience is shaped and hosted by a verified local Buddy—not an anonymous operator.</p></section>
+      <div className="search-dock"><label><span>City</span><select value={city} onChange={(e) => setCity(e.target.value)}>{cities.map((item) => <option key={item}>{item}</option>)}</select></label><label><span>What interests you?</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Art, food or technology"/></label><label><span>When</span><input type="date" /></label><label><span>Experience</span><select value={category} onChange={(e) => setCategory(e.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label><button onClick={() => document.getElementById("experiences")?.scrollIntoView({ beha…23 tokens truncated…"people-strip"><div><p className="eyebrow">A familiar face in a new city</p><h2>Come for China.<br/>Remember the people.</h2></div><div className="people-stack">{buddies.slice(0,4).map((buddy) => <img key={buddy.name} src={buddy.image} alt={buddy.name}/>)}</div><p>Every experience is shaped and hosted by a verified local Buddy—not an anonymous operator.</p></section>
     <section className="categories" aria-label="Experience categories">{categories.map((item, i) => <button key={item} className={category === item ? "selected" : ""} onClick={() => setCategory(item)}><span>{String(i + 1).padStart(2, "0")}</span>{item}</button>)}</section>
     <section className="experience-section" id="experiences"><div className="section-heading"><div><p className="eyebrow">Buddy-led in China</p><h2>Choose who takes you in.</h2></div><p>Small groups, transparent pricing and a local who can translate more than words.</p></div><div className="tour-grid">{filtered.map((tour, i) => <article className="tour-card" key={tour.id}><div className="card-image"><img src={tour.image} alt={`${tour.host} hosting ${tour.category.toLowerCase()} guests`}/><span className="card-index">0{i + 1}</span><button className={favorites.includes(tour.id) ? "heart saved" : "heart"} onClick={() => toggleFavorite(tour.id)} aria-label="Save experience">{favorites.includes(tour.id) ? "♥" : "♡"}</button><div className="card-host"><img src={tour.hostImage} alt=""/><span>with <b>{tour.host}</b></span></div></div><div className="card-meta"><span>{tour.category}</span><span>★ {tour.rating} ({tour.reviews})</span></div><button className="card-title" onClick={() => go("tour", tour.id)}>{tour.title}</button><div className="card-bottom"><span>{tour.duration} · {tour.city}</span><span>from <b>${tour.price}</b> / person</span></div></article>)}</div>{!filtered.length && <div className="empty">No experiences match this city and category yet. Try Shenzhen or adjust your filters.</div>}</section>
     <section className="buddy-banner"><div className="buddy-banner-image"><img src={IMAGES.team} alt="Local buddies meeting and planning experiences"/></div><div className="buddy-banner-copy"><p className="eyebrow">Become a China Buddy</p><h2>Your version of China is worth sharing.</h2><p>Turn your local knowledge, language skills and point of view into thoughtful experiences for curious travelers.</p><button onClick={() => go("buddy")}>Meet the community & apply ↗</button></div></section>
