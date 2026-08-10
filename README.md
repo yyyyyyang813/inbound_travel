@@ -24,21 +24,21 @@ In the Wix Studio account that owns the Headless project:
    `https://yyyyyyang813.github.io/inbound_travel/`
 
 3. Add `yyyyyyang813.github.io` as an allowed redirect domain.
-4. Enable Dev Mode/Data APIs and create these case-sensitive CMS collection IDs:
+4. Enable Dev Mode/Data APIs and use these case-sensitive CMS collection IDs:
 
-### `Experiences`
-
-Allow **Anyone** to read. Keep create, update and delete restricted to CMS collaborators or admins.
-
-Required fields: `slug`, `title`, `category`, `city`, `price`.
-
-Supported optional fields: `kicker`, `duration`, `rating`, `reviews`, `image`, `image2`, `buddyName`, `buddyImage`, `buddyRole`, `intro`, `groupSize`, `quote`, `mapUrl`, `mapLabel`, `comments`, `steps`.
-
-### `Buddies`
+### `Import1` — Experiences
 
 Allow **Anyone** to read. Keep create, update and delete restricted to CMS collaborators or admins.
 
-Fields: `name`, `photo`, `focus`, `city`, `guestDays`.
+Required fields: `slug`, `title`, `category`, `city`, `priceUsd`, `buddySlug`.
+
+Supported optional fields: `kicker`, `duration`, `rating`, `reviewCount`, `heroImageUrl`, `secondaryImageUrl`, `intro`, `group`, `quote`, `mapUrl`, `mapLabel`, `languages`, `sortOrder`, `active`.
+
+### `Import2` — Buddies
+
+Allow **Anyone** to read. Keep create, update and delete restricted to CMS collaborators or admins.
+
+Fields: `slug`, `name`, `avatarPath`, `focus`, `role`, `city`, `guestDaysHosted`, `languages`, `tagline`, `status`, `verified`.
 
 ### `BookingRequests`
 
@@ -52,8 +52,8 @@ Optional build-time overrides:
 
 ```bash
 VITE_WIX_CLIENT_ID=...
-VITE_WIX_EXPERIENCES_COLLECTION_ID=Experiences
-VITE_WIX_BUDDIES_COLLECTION_ID=Buddies
+VITE_WIX_EXPERIENCES_COLLECTION_ID=Import1
+VITE_WIX_BUDDIES_COLLECTION_ID=Import2
 VITE_WIX_BOOKINGS_COLLECTION_ID=BookingRequests
 ```
 
