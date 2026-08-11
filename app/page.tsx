@@ -113,7 +113,7 @@ const numberField = (item: WixContentItem, key: string, fallback: number) =>
   typeof item[key] === "number" ? Number(item[key]) : fallback;
 
 function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[]) {
-  if (!items.length) return tours;
+  if (!items.length) return [];
   const buddiesBySlug = new Map(buddyItems.map((buddy) => [textField(buddy, "slug", ""), buddy]));
   return [...items]
     .filter((item) => item.active !== false)
@@ -151,7 +151,7 @@ function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[]) {
 }
 
 function mergeWixBuddies(items: WixContentItem[]) {
-  if (!items.length) return buddies;
+  if (!items.length) return [];
   return items.filter((item) => textField(item, "status", "active").toLowerCase() === "active").map((item, index): Buddy => {
     const fallback = buddies[index % buddies.length];
     return {
@@ -204,8 +204,8 @@ export default function App() {
   const [memberLoggedIn, setMemberLoggedIn] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [catalogTours, setCatalogTours] = useState<Tour[]>(tours);
-  const [catalogBuddies, setCatalogBuddies] = useState<Buddy[]>(buddies);
+  const [catalogTours, setCatalogTours] = useState<Tour[]>([]);
+  const [catalogBuddies, setCatalogBuddies] = useState<Buddy[]>([]);
   const [wixConnected, setWixConnected] = useState(false);
 
   useEffect(() => {
@@ -228,6 +228,9 @@ export default function App() {
       if (loginError) { setAuthError(loginError); setAuth(true); }
     }).catch((error) => {
       if (!active) return;
+      setCatalogTours([]);
+      setCatalogBuddies([]);
+      setWixConnected(false);
       setAuthError(error instanceof Error ? error.message : "Wix could not be reached.");
     });
     return () => { active = false; window.removeEventListener("hashchange", sync); };
@@ -248,7 +251,7 @@ export default function App() {
     const next = favorites.includes(id) ? favorites.filter((item) => item !== id) : [...favorites, id];
     setFavorites(next); window.localStorage.setItem("arctic-tern-favorites", JSON.stringify(next));
   };
-  const selected = catalogTours.find((tour) => tour.id === tourId) || catalogTours[0] || tours[0];
+  const selected = catalogTours.find((tour) => tour.id === tourId) || catalogTours[0] || null;
   const filtered = useMemo(() => catalogTours.filter((tour) => {
     const categoryMatch = category === "All" || tour.category === category;
     const cityMatch = city === "All cities" || tour.city === city;
@@ -259,10 +262,10 @@ export default function App() {
   return <main>
     <div className="notice">China Buddy by Arctic Tern · Private, English-friendly experiences · Replies within 24 hours</div>
     <Header view={view} menu={menu} setMenu={setMenu} setAuth={setAuth} memberLoggedIn={memberLoggedIn} />
-    {view === "home" && <HomeView category={category} setCategory={setCategory} city={city} setCity={setCity} query={query} setQuery={setQuery} filtered={filtered} buddies={catalogBuddies} favorites={favorites} toggleFavorite={toggleFavorite} />}
-    {view === "tour" && <TourView tour={selected} favorite={favorites.includes(selected.id)} toggleFavorite={toggleFavorite} />}
+    {view === "home" && <HomeView category={category} setCategory={setCategory} city={city} setCity={setCity} query={query} setQuery={setQuery} filtered={filtered} hasCatalogTours={catalogTours.length > 0} buddies={catalogBuddies} favorites={favorites} toggleFavorite={toggleFavorite} />}
+    {view === "tour" && selected && <TourView tour={selected} favorite={favorites.includes(selected.id)} toggleFavorite={toggleFavorite} />}
     {view === "community" && <CommunityView />}
-    {view === "checkout" && <CheckoutView tour={selected} memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />}
+    {view === "checkout" && selected && <CheckoutView tour={selected} memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />}
     {view === "buddy" && <BuddyView buddies={catalogBuddies} />}
     <Footer />
     <CustomerCare />
@@ -282,7 +285,7 @@ function Header({ view, menu, setMenu, setAuth, memberLoggedIn }: { view: View; 
   </header>;
 }
 
-function HomeView({ category, setCategory, city, setCity, query, setQuery, filtered, buddies, favorites, toggleFavorite }: { category: string; setCategory: (v: string) => void; city: string; setCity: (v: string) => void; query: string; setQuery: (v: string) => void; filtered: Tour[]; buddies: Buddy[]; favorites: string[]; toggleFavorite: (id: string) => void }) {
+function HomeView({ category, setCategory, city, setCity, query, setQuery, filtered, hasCatalogTours, buddies, favorites, toggleFavorite }: { category: string; setCategory: (v: string) => void; city: string; setCity: (v: string) => void; query: string; setQuery: (v: string) => void; filtered: Tour[]; hasCatalogTours: boolean; buddies: Buddy[]; favorites: string[]; toggleFavorite: (id: string) => void }) {
   return <>
     <section className="hero">
       <div className="hero-copy"><p className="eyebrow">Arctic Tern presents · China Buddy</p><h1>Meet China through<br/><i>someone local.</i></h1><p className="hero-lede">Not just a guide. A real person who knows the shortcuts, stories and tables—and helps China feel easy from the first hello.</p><div className="hero-stats"><span><b>4.98</b> average rating</span><span><b>100%</b> locally hosted</span><span><b>24h</b> human response</span></div></div>
@@ -291,7 +294,7 @@ function HomeView({ category, setCategory, city, setCity, query, setQuery, filte
     </section>
     <section className="people-strip"><div><p className="eyebrow">A familiar face in a new city</p><h2>Come for China.<br/>Remember the people.</h2></div><div className="people-stack">{buddies.slice(0,4).map((buddy) => <img key={buddy.name} src={buddy.image} alt={buddy.name}/>)}</div><p>Every experience is shaped and hosted by a verified local Buddy—not an anonymous operator.</p></section>
     <section className="categories" aria-label="Experience categories">{categories.map((item, i) => <button key={item} className={category === item ? "selected" : ""} onClick={() => setCategory(item)}><span>{String(i + 1).padStart(2, "0")}</span>{item}</button>)}</section>
-    <section className="experience-section" id="experiences"><div className="section-heading"><div><p className="eyebrow">Buddy-led in China</p><h2>Choose who takes you in.</h2></div><p>Small groups, transparent pricing and a local who can translate more than words.</p></div><div className="tour-grid">{filtered.map((tour, i) => <article className="tour-card" key={tour.id}><div className="card-image"><img src={tour.image} alt={`${tour.host} hosting ${tour.category.toLowerCase()} guests`}/><span className="card-index">0{i + 1}</span><button className={favorites.includes(tour.id) ? "heart saved" : "heart"} onClick={() => toggleFavorite(tour.id)} aria-label="Save experience">{favorites.includes(tour.id) ? "♥" : "♡"}</button><div className="card-host"><img src={tour.hostImage} alt=""/><span>with <b>{tour.host}</b></span></div></div><div className="card-meta"><span>{tour.category}</span><span>★ {tour.rating} ({tour.reviews})</span></div><button className="card-title" onClick={() => go("tour", tour.id)}>{tour.title}</button><div className="card-bottom"><span>{tour.duration} · {tour.city}</span><span>from <b>${tour.price}</b> / person</span></div></article>)}</div>{!filtered.length && <div className="empty">No experiences match this city and category yet. Try Shenzhen or adjust your filters.</div>}</section>
+    <section className="experience-section" id="experiences"><div className="section-heading"><div><p className="eyebrow">Buddy-led in China</p><h2>Choose who takes you in.</h2></div><p>Small groups, transparent pricing and a local who can translate more than words.</p></div><div className="tour-grid">{filtered.map((tour, i) => <article className="tour-card" key={tour.id}><div className="card-image"><img src={tour.image} alt={`${tour.host} hosting ${tour.category.toLowerCase()} guests`}/><span className="card-index">0{i + 1}</span><button className={favorites.includes(tour.id) ? "heart saved" : "heart"} onClick={() => toggleFavorite(tour.id)} aria-label="Save experience">{favorites.includes(tour.id) ? "♥" : "♡"}</button><div className="card-host"><img src={tour.hostImage} alt=""/><span>with <b>{tour.host}</b></span></div></div><div className="card-meta"><span>{tour.category}</span><span>★ {tour.rating} ({tour.reviews})</span></div><button className="card-title" onClick={() => go("tour", tour.id)}>{tour.title}</button><div className="card-bottom"><span>{tour.duration} · {tour.city}</span><span>from <b>${tour.price}</b> / person</span></div></article>)}</div>{hasCatalogTours && !filtered.length && <div className="empty">No experiences match this city and category yet. Try Shenzhen or adjust your filters.</div>}</section>
     <section className="buddy-banner"><div className="buddy-banner-image"><img src={IMAGES.team} alt="Local buddies meeting and planning experiences"/></div><div className="buddy-banner-copy"><p className="eyebrow">Become a China Buddy</p><h2>Your version of China is worth sharing.</h2><p>Turn your local knowledge, language skills and point of view into thoughtful experiences for curious travelers.</p><button onClick={() => go("buddy")}>Meet the community & apply ↗</button></div></section>
   </>;
 }
@@ -316,11 +319,11 @@ function TourView({ tour, favorite, toggleFavorite }: { tour: Tour; favorite: bo
 
 function BuddyView({ buddies }: { buddies: Buddy[] }) {
   const [sent, setSent] = useState(false);
-  const leadBuddy = buddies[0] || { name: "Sarah Zhao", image: IMAGES.sarah, focus: "Heritage & hidden tables", city: "Shenzhen", tours: 392 };
+  const leadBuddy = buddies[0];
   return <div className="buddy-page">
     <section className="buddy-hero">
       <div className="buddy-hero-copy"><p className="eyebrow">Become a China Buddy</p><h1>Show your China.<br/><i>Your way.</i></h1><p>Host small, meaningful experiences with Arctic Tern. You bring the local point of view; we help with international guests, presentation and support.</p><button onClick={() => document.getElementById("buddy-apply")?.scrollIntoView({ behavior: "smooth" })}>Start your application ↓</button></div>
-      <div className="buddy-hero-visual"><img src={leadBuddy.image} alt={`${leadBuddy.name}, a verified ${leadBuddy.city} Buddy`}/><div className="buddy-hero-profile"><span className="profile-status"/><div><small>Meet {leadBuddy.name.split(" ")[0]} · {leadBuddy.city}</small><b>“I help guests read the city between the landmarks.”</b></div></div><div className="buddy-hero-stat"><strong>{leadBuddy.tours}</strong><span>guest days<br/>hosted locally</span></div></div>
+      {leadBuddy && <div className="buddy-hero-visual"><img src={leadBuddy.image} alt={`${leadBuddy.name}, a verified ${leadBuddy.city} Buddy`}/><div className="buddy-hero-profile"><span className="profile-status"/><div><small>Meet {leadBuddy.name.split(" ")[0]} · {leadBuddy.city}</small><b>“I help guests read the city between the landmarks.”</b></div></div><div className="buddy-hero-stat"><strong>{leadBuddy.tours}</strong><span>guest days<br/>hosted locally</span></div></div>}
     </section>
     <section className="buddy-proof"><p>Built for people with a point of view—not professional tour scripts.</p><div><span><b>4.98</b> guest rating</span><span><b>4–8</b> guests per group</span><span><b>24h</b> local support</span></div></section>
     <section className="active-buddies"><div className="section-heading"><div><p className="eyebrow">Already in the community</p><h2>Four locals.<br/>Four ways into China.</h2></div><p>Artists, food lovers, engineers and storytellers—each with a personal door into the city.</p></div><div className="buddy-grid">{buddies.map((buddy, index) => <article key={buddy.name}><div className="buddy-card-photo"><img src={buddy.image} alt={`${buddy.name}, Arctic Tern Buddy in ${buddy.city}`}/><span>{String(index + 1).padStart(2, "0")} · {buddy.city}</span></div><div className="buddy-card-copy"><p className="eyebrow">{buddy.tours} guest days hosted</p><h3>{buddy.name}</h3><p>{buddy.focus}</p><span className="buddy-verified">✓ Identity & experience verified</span></div></article>)}</div></section>
