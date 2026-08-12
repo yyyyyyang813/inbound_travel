@@ -19,6 +19,7 @@ type Tour = {
   mapLabel: string; comments: Review[]; steps: { time: string; title: string; copy: string }[];
 };
 type Buddy = { name: string; image: string; focus: string; city: string; tours: number };
+type FieldNote = { slug: string; tag: string; title: string; deck: string; image: string; read: string; authorSlug: string };
 
 const buddyImage = (file: string) => `${import.meta.env.BASE_URL}buddies/${file}`;
 
@@ -112,16 +113,23 @@ const textField = (item: WixContentItem, key: string, fallback: string) =>
 const numberField = (item: WixContentItem, key: string, fallback: number) =>
   typeof item[key] === "number" ? Number(item[key]) : fallback;
 
-function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[]) {
+function dateLabel(value: unknown, fallback: string) {
+  const raw = typeof value === "string" ? value : typeof value === "object" && value && "$date" in value ? String(value.$date) : "";
+  if (!raw) return fallback;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? raw : date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[], stepItems: WixContentItem[], reviewItems: WixContentItem[]) {
   if (!items.length) return [];
   const buddiesBySlug = new Map(buddyItems.map((buddy) => [textField(buddy, "slug", ""), buddy]));
   return [...items]
     .filter((item) => item.active !== false)
-    .sort((a, b) => numberField(a, "sortOrder", 999) - numberField(b, "sortOrder", 999))
+    .sort((a, b) => numberField(a, "order", 999) - numberField(b, "order", 999))
     .map((item, index): Tour => {
     const slug = textField(item, "slug", textField(item, "id", `wix-experience-${index + 1}`));
     const fallback = tours.find((tour) => tour.id === slug) || tours[index % tours.length];
-    const cmsBuddy = buddiesBySlug.get(textField(item, "buddySlug", ""));
+    const cmsBuddy = buddiesBySlug.get(textField(item, "buddy", ""));
     const rating = numberField(item, "rating", Number(fallback.rating));
     return {
       ...fallback,
@@ -134,8 +142,8 @@ function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[]) {
       reviews: numberField(item, "reviewCount", numberField(item, "reviews", fallback.reviews)),
       city: textField(item, "city", fallback.city),
       price: numberField(item, "priceUsd", numberField(item, "price", fallback.price)),
-      image: wixImageUrl(item.heroImageUrl ?? item.image, fallback.image),
-      image2: wixImageUrl(item.secondaryImageUrl ?? item.image2, fallback.image2),
+      image: wixImageUrl(item.firstImage, fallback.image),
+      image2: wixImageUrl(item.secondImage, fallback.image2),
       host: cmsBuddy ? textField(cmsBuddy, "name", fallback.host) : textField(item, "buddyName", fallback.host),
       hostImage: cmsBuddy ? wixImageUrl(cmsBuddy.avatarPath, fallback.hostImage) : wixImageUrl(item.buddyImage, fallback.hostImage),
       role: cmsBuddy ? textField(cmsBuddy, "role", fallback.role) : textField(item, "buddyRole", fallback.role),
@@ -144,23 +152,31 @@ function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[]) {
       quote: textField(item, "quote", fallback.quote),
       map: textField(item, "mapUrl", fallback.map),
       mapLabel: textField(item, "mapLabel", fallback.mapLabel),
-      comments: Array.isArray(item.comments) ? item.comments as Review[] : fallback.comments,
-      steps: Array.isArray(item.steps) ? item.steps as Tour["steps"] : fallback.steps,
+      comments: reviewItems.filter((review) => textField(review, "activitySlug", "") === slug).sort((a, b) => numberField(a, "order", 999) - numberField(b, "order", 999)).map((review) => ({ name: textField(review, "reviewerName", textField(review, "title", "Guest")), place: textField(review, "location", "Verified guest"), date: dateLabel(review.date, "Recent"), text: textField(review, "text", "") })),
+      steps: stepItems.filter((step) => textField(step, "activitySlug", "") === slug).sort((a, b) => numberField(a, "order", 999) - numberField(b, "order", 999)).map((step) => ({ time: textField(step, "time", "").slice(0, 5), title: textField(step, "stepTitle", textField(step, "slug", "")), copy: textField(step, "description", textField(step, "kicker", "")) })),
     };
   });
 }
 
 function mergeWixBuddies(items: WixContentItem[]) {
   if (!items.length) return [];
-  return items.filter((item) => textField(item, "status", "active").toLowerCase() === "active").map((item, index): Buddy => {
+  return items.filter((item) => item.status !== false).map((item, index): Buddy => {
     const fallback = buddies[index % buddies.length];
     return {
-      name: textField(item, "name", fallback.name),
-      image: wixImageUrl(item.avatarPath ?? item.photo, fallback.image),
-      focus: textField(item, "focus", fallback.focus),
+      name: textField(item, "title", fallback.name),
+      image: wixImageUrl(item.photo, fallback.image),
+      focus: textField(item, "focus", textField(item, "interest", fallback.focus)),
       city: textField(item, "city", fallback.city),
       tours: numberField(item, "guestDaysHosted", numberField(item, "guestDays", fallback.tours)),
     };
+  });
+}
+
+function mergeWixFieldNotes(items: WixContentItem[], buddyItems: WixContentItem[]): FieldNote[] {
+  const buddyImages = new Map(buddyItems.map((buddy) => [textField(buddy, "slug", ""), wixImageUrl(buddy.photo, IMAGES.team)]));
+  return items.filter((item) => item.active !== false).sort((a, b) => numberField(a, "order", 999) - numberField(b, "order", 999)).map((item, index) => {
+    const authorSlug = textField(item, "authorSlug", "");
+    return { slug: textField(item, "slug", `field-note-${index + 1}`), tag: textField(item, "tag", "Culture"), title: textField(item, "title", "Field note"), deck: textField(item, "kicker", ""), read: textField(item, "readTime", "5 min"), authorSlug, image: buddyImages.get(authorSlug) || IMAGES.team };
   });
 }
 
@@ -206,6 +222,7 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [catalogTours, setCatalogTours] = useState<Tour[]>([]);
   const [catalogBuddies, setCatalogBuddies] = useState<Buddy[]>([]);
+  const [fieldNotes, setFieldNotes] = useState<FieldNote[]>([]);
   const [wixConnected, setWixConnected] = useState(false);
 
   useEffect(() => {
@@ -221,8 +238,9 @@ export default function App() {
     let active = true;
     void initializeWix().then(({ catalog, loginError }) => {
       if (!active) return;
-      setCatalogTours(mergeWixTours(catalog.experiences, catalog.buddies));
+      setCatalogTours(mergeWixTours(catalog.experiences, catalog.buddies, catalog.steps, catalog.reviews));
       setCatalogBuddies(mergeWixBuddies(catalog.buddies));
+      setFieldNotes(mergeWixFieldNotes(catalog.fieldNotes, catalog.buddies));
       setWixConnected(catalog.connected);
       setMemberLoggedIn(isWixMemberLoggedIn());
       if (loginError) { setAuthError(loginError); setAuth(true); }
@@ -264,7 +282,7 @@ export default function App() {
     <Header view={view} menu={menu} setMenu={setMenu} setAuth={setAuth} memberLoggedIn={memberLoggedIn} />
     {view === "home" && <HomeView category={category} setCategory={setCategory} city={city} setCity={setCity} query={query} setQuery={setQuery} filtered={filtered} hasCatalogTours={catalogTours.length > 0} buddies={catalogBuddies} favorites={favorites} toggleFavorite={toggleFavorite} />}
     {view === "tour" && selected && <TourView tour={selected} favorite={favorites.includes(selected.id)} toggleFavorite={toggleFavorite} />}
-    {view === "community" && <CommunityView />}
+    {view === "community" && <CommunityView posts={fieldNotes} />}
     {view === "checkout" && selected && <CheckoutView tour={selected} memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />}
     {view === "buddy" && <BuddyView buddies={catalogBuddies} />}
     <Footer />
@@ -332,9 +350,8 @@ function BuddyView({ buddies }: { buddies: Buddy[] }) {
   </div>;
 }
 
-function CommunityView() {
+function CommunityView({ posts }: { posts: FieldNote[] }) {
   const [tag, setTag] = useState("All stories"); const tags = ["All stories", "Before you go", "Food", "Culture", "Future city"];
-  const posts = [{ tag: "Future city", title: "Your first robotaxi ride: what actually happens", deck: "Kevin’s five-minute briefing before you tap start.", image: IMAGES.kevin, read: "6 min" }, { tag: "Culture", title: "Dafen after the replicas", deck: "Leo introduces the studios and painters shaping the village’s second act.", image: IMAGES.leo, read: "8 min" }, { tag: "Before you go", title: "The Shenzhen arrival note", deck: "Sarah on payments, maps, messaging and the tiny choices that make day one smooth.", image: IMAGES.sarah, read: "5 min" }];
   return <div className="community-page"><section className="community-hero"><p className="eyebrow">Arctic Tern · Buddy Field Notes</p><h1>China explained<br/><i>by the people in it.</i></h1><p>Practical intelligence, honest recommendations and stories from our local community.</p></section><div className="pill-row">{tags.map(item => <button className={tag === item ? "active" : ""} onClick={() => setTag(item)} key={item}>{item}</button>)}</div><section className="magazine-grid">{posts.filter(post => tag === "All stories" || post.tag === tag).map((post, i) => <article className={i === 0 ? "magazine-card feature" : "magazine-card"} key={post.title}><img src={post.image} alt=""/><div><p className="eyebrow">{post.tag} · {post.read}</p><h2>{post.title}</h2><p>{post.deck}</p><button>Read story ↗</button></div></article>)}</section><section className="community-cta"><span>Have a question only a local can answer?</span><button onClick={() => go("home")}>Find your China Buddy</button></section></div>;
 }
 

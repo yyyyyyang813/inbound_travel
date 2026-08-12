@@ -1,61 +1,46 @@
-# Arctic Tern · China Buddy
+# Arctic Tern — China Buddy
 
-A responsive front-end prototype for people-led inbound travel experiences in China.
+React + Vite frontend for Arctic Tern's people-led China experiences. The public site is deployed with GitHub Pages and uses Wix Headless for CMS content, member authentication, and availability requests.
 
 ## Features
 
-- Experience discovery, search, categories and saved favorites
-- Buddy-led experience pages with itinerary, reviews and location maps
-- Become a Buddy community and application page
-- Floating customer support and message panel
-- Booking request and checkout preview
-- Wix Headless member authentication, CMS catalog sync and booking request storage
-- Responsive desktop and mobile layouts
+- Search and filter experiences by city and category
+- Experience details with Buddy profiles, itinerary steps, reviews, and location maps
+- Buddy directory and editorial Field Notes
+- Wix-hosted member sign-in and registration
+- Member-only availability request submission
+- Responsive support and Buddy application interfaces
 
-## Wix Headless setup
+## Wix Headless configuration
 
-The frontend uses Wix Headless client `6b93edde-404f-43eb-816e-b43b0b8a525f`. A Wix Headless client ID is public and does not require a client secret in browser code. Never add a Wix API key to this repository.
+The public client ID may be configured with `VITE_WIX_CLIENT_ID`. Never put a Wix API key in this repository or in frontend environment variables.
 
-In the Wix Studio account that owns the Headless project:
+Production content uses these Wix CMS collections:
 
-1. Install Wix Members Area and publish the Wix site connected to the Headless project.
-2. In **Settings → Development & integrations → Headless Settings**, add this exact allowed authorization redirect URI:
+- `Activities`: experience cards and detail-page content. Activities reference a Buddy using the Buddy `slug`.
+- `Buddies`: public host name, portrait, profile, city, languages, interests, hosting count, verification, and publication status.
+- `ActivityStep`: ordered itinerary rows linked through `activitySlug`.
+- `Review`: ordered guest reviews linked through `activitySlug`.
+- `FieldNote`: community-page editorial cards linked to a Buddy through `authorSlug`.
+- `Booking`: private member-authored availability requests. Personal data is not publicly readable.
 
-   `https://yyyyyyang813.github.io/inbound_travel/`
+The frontend defaults to those collection IDs. Alternate Wix projects can override them:
 
-3. Add `yyyyyyang813.github.io` as an allowed redirect domain.
-4. Enable Dev Mode/Data APIs and use these case-sensitive CMS collection IDs:
-
-### `Import1` — Experiences
-
-Allow **Anyone** to read. Keep create, update and delete restricted to CMS collaborators or admins.
-
-Required fields: `slug`, `title`, `category`, `city`, `priceUsd`, `buddySlug`.
-
-Supported optional fields: `kicker`, `duration`, `rating`, `reviewCount`, `heroImageUrl`, `secondaryImageUrl`, `intro`, `group`, `quote`, `mapUrl`, `mapLabel`, `languages`, `sortOrder`, `active`.
-
-### `Import2` — Buddies
-
-Allow **Anyone** to read. Keep create, update and delete restricted to CMS collaborators or admins.
-
-Fields: `slug`, `name`, `avatarPath`, `focus`, `role`, `city`, `guestDaysHosted`, `languages`, `tagline`, `status`, `verified`.
-
-### `BookingRequests`
-
-Allow logged-in site members to create items. For personal-data safety, restrict reads and updates to the item author and CMS collaborators/admins; restrict deletion to admins.
-
-Fields: `experienceId`, `experienceTitle`, `preferredDate`, `guests`, `estimatedTotal`, `currency`, `fullName`, `whatsapp`, `email`, `specialRequests`, `preferredPayment`, `status`, `source`, `submittedAt`.
-
-Until these collections exist and permissions are enabled, the site keeps showing its built-in preview catalog. Booking submissions intentionally remain unavailable.
-
-Optional build-time overrides:
-
-```bash
-VITE_WIX_CLIENT_ID=...
-VITE_WIX_EXPERIENCES_COLLECTION_ID=Import1
-VITE_WIX_BUDDIES_COLLECTION_ID=Import2
-VITE_WIX_BOOKINGS_COLLECTION_ID=BookingRequests
+```env
+VITE_WIX_CLIENT_ID=your-headless-client-id
+VITE_WIX_EXPERIENCES_COLLECTION_ID=Activities
+VITE_WIX_BUDDIES_COLLECTION_ID=Buddies
+VITE_WIX_STEPS_COLLECTION_ID=ActivityStep
+VITE_WIX_REVIEWS_COLLECTION_ID=Review
+VITE_WIX_FIELD_NOTES_COLLECTION_ID=FieldNote
+VITE_WIX_BOOKINGS_COLLECTION_ID=Booking
 ```
+
+Public content collections allow anonymous reads and administrator writes. `Booking` allows signed-in members to insert their own request and limits reads to the author and administrators.
+
+## What remains in the frontend
+
+Brand copy, navigation labels, help text, trust statements, search options, footer content, and interface state remain in source code because they are presentation-level copy rather than frequently managed catalog data. The Buddy application and support widgets currently provide preview interactions only; production submission requires a protected server-side endpoint, validation, and anti-spam controls.
 
 ## Local development
 
@@ -64,4 +49,11 @@ pnpm install
 pnpm dev
 ```
 
-Create a production build with `pnpm build`. The site is deployed to GitHub Pages by the workflow in `.github/workflows/pages.yml`.
+Production validation:
+
+```bash
+pnpm exec tsc --noEmit
+pnpm build
+```
+
+GitHub Pages deployment runs from `.github/workflows/deploy-pages.yml` after changes reach `main`.

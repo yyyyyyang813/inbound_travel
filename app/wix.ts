@@ -6,9 +6,12 @@ const TOKEN_STORAGE_KEY = "arctic-tern-wix-tokens";
 const OAUTH_DATA_KEY = "arctic-tern-wix-oauth-data";
 
 export const WIX_COLLECTIONS = {
-  experiences: import.meta.env.VITE_WIX_EXPERIENCES_COLLECTION_ID || "Import1",
-  buddies: import.meta.env.VITE_WIX_BUDDIES_COLLECTION_ID || "Import2",
-  bookingRequests: import.meta.env.VITE_WIX_BOOKINGS_COLLECTION_ID || "BookingRequests",
+  experiences: import.meta.env.VITE_WIX_EXPERIENCES_COLLECTION_ID || "Activities",
+  buddies: import.meta.env.VITE_WIX_BUDDIES_COLLECTION_ID || "Buddies",
+  activitySteps: import.meta.env.VITE_WIX_STEPS_COLLECTION_ID || "ActivityStep",
+  reviews: import.meta.env.VITE_WIX_REVIEWS_COLLECTION_ID || "Review",
+  fieldNotes: import.meta.env.VITE_WIX_FIELD_NOTES_COLLECTION_ID || "FieldNote",
+  bookingRequests: import.meta.env.VITE_WIX_BOOKINGS_COLLECTION_ID || "Booking",
 };
 
 export type WixContentItem = Record<string, unknown> & { _id?: string };
@@ -85,20 +88,29 @@ async function queryCollection(collectionId: string) {
 }
 
 export async function loadWixCatalog() {
-  const [experienceResult, buddyResult] = await Promise.allSettled([
+  const [experienceResult, buddyResult, stepResult, reviewResult, fieldNoteResult] = await Promise.allSettled([
     queryCollection(WIX_COLLECTIONS.experiences),
     queryCollection(WIX_COLLECTIONS.buddies),
+    queryCollection(WIX_COLLECTIONS.activitySteps),
+    queryCollection(WIX_COLLECTIONS.reviews),
+    queryCollection(WIX_COLLECTIONS.fieldNotes),
   ]);
 
   const experiences = experienceResult.status === "fulfilled" ? experienceResult.value : [];
   const buddies = buddyResult.status === "fulfilled" ? buddyResult.value : [];
-  const errors = [experienceResult, buddyResult]
+  const steps = stepResult.status === "fulfilled" ? stepResult.value : [];
+  const reviews = reviewResult.status === "fulfilled" ? reviewResult.value : [];
+  const fieldNotes = fieldNoteResult.status === "fulfilled" ? fieldNoteResult.value : [];
+  const errors = [experienceResult, buddyResult, stepResult, reviewResult, fieldNoteResult]
     .filter((result): result is PromiseRejectedResult => result.status === "rejected")
     .map((result) => readableError(result.reason));
 
   return {
     experiences,
     buddies,
+    steps,
+    reviews,
+    fieldNotes,
     connected: experienceResult.status === "fulfilled" || buddyResult.status === "fulfilled",
     errors,
   };
@@ -143,6 +155,9 @@ export async function logoutWixMember() {
 export async function submitWixBookingRequest(input: BookingRequestInput) {
   return wixClient.items.insert(WIX_COLLECTIONS.bookingRequests, {
     ...input,
+    title: `${input.fullName} · ${input.experienceTitle}`,
+    activitySlug: input.experienceId,
+    activityTitle: input.experienceTitle,
     status: "NEW",
     source: "arctic-tern-headless",
     submittedAt: new Date(),
