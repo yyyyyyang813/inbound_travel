@@ -12,6 +12,8 @@ export const WIX_COLLECTIONS = {
   reviews: import.meta.env.VITE_WIX_REVIEWS_COLLECTION_ID || "Review",
   fieldNotes: import.meta.env.VITE_WIX_FIELD_NOTES_COLLECTION_ID || "FieldNote",
   bookingRequests: import.meta.env.VITE_WIX_BOOKINGS_COLLECTION_ID || "Booking",
+  supportMessages: import.meta.env.VITE_WIX_SUPPORT_COLLECTION_ID || "SupportMessage",
+  buddyApplications: import.meta.env.VITE_WIX_BUDDY_APPLICATIONS_COLLECTION_ID || "BuddyApplication",
 };
 
 export type WixContentItem = Record<string, unknown> & { _id?: string };
@@ -41,6 +43,20 @@ export type BookingRequestInput = {
   email: string;
   specialRequests: string;
   preferredPayment: string;
+};
+
+export type SupportMessageInput = {
+  message: string;
+  email: string;
+  pageUrl: string;
+};
+
+export type BuddyApplicationInput = {
+  fullName: string;
+  city: string;
+  contact: string;
+  experienceIdea: string;
+  pageUrl: string;
 };
 
 const EMPTY_TOKENS: Tokens = {
@@ -158,6 +174,29 @@ export async function submitWixBookingRequest(input: BookingRequestInput) {
     title: `${input.fullName} · ${input.experienceTitle}`,
     activitySlug: input.experienceId,
     activityTitle: input.experienceTitle,
+    status: "NEW",
+    source: "arctic-tern-headless",
+    submittedAt: new Date(),
+  });
+}
+
+export async function submitWixSupportMessage(input: SupportMessageInput) {
+  return wixClient.items.insert(WIX_COLLECTIONS.supportMessages, {
+    ...input,
+    title: input.email || "Anonymous website message",
+    status: "NEW",
+    source: "arctic-tern-headless",
+    submittedAt: new Date(),
+  });
+}
+
+export async function submitWixBuddyApplication(input: BuddyApplicationInput) {
+  return wixClient.items.insert(WIX_COLLECTIONS.buddyApplications, {
+    title: input.fullName,
+    city: input.city,
+    contact: input.contact,
+    experienceIdea: input.experienceIdea,
+    pageUrl: input.pageUrl,
     status: "NEW",
     source: "arctic-tern-headless",
     submittedAt: new Date(),

@@ -20,10 +20,12 @@ All public content collections are readable by visitors and writable only by sit
 
 Key request fields are `activitySlug`, `activityTitle`, `preferredDate`, `guests`, `estimatedTotal`, `currency`, `fullName`, `whatsapp`, `email`, `specialRequests`, `preferredPayment`, `status`, `source`, and `submittedAt`.
 
+`SupportMessage` stores visitor support requests. `BuddyApplication` stores prospective Buddy introductions. Both allow anonymous inserts so the public forms work without sign-in, while reads, updates, and removals are restricted to administrators.
+
 ## Migration
 
 The original `Import1` and `Import2` records were migrated into `Activities` and `Buddies`. Itinerary, review, and editorial data were normalized into their related collections before the legacy imports were retired. Stable slug fields are used instead of display titles so editors may rename public content without breaking relationships.
 
 ## Intentionally code-managed
 
-Brand and campaign copy, navigation labels, help and trust text, search option labels, footer content, and component behavior remain in the frontend. Buddy application and support-message submission remain disabled as data writes until a protected endpoint with validation, rate limiting, and anti-spam controls is available.
+Brand and campaign copy, navigation labels, help and trust text, search option labels, footer content, and component behavior remain in the frontend. Anonymous support and Buddy application submission should be monitored and upgraded with rate limiting or CAPTCHA if abuse appears.

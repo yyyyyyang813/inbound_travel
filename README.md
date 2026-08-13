@@ -23,6 +23,8 @@ Production content uses these Wix CMS collections:
 - `Review`: ordered guest reviews linked through `activitySlug`.
 - `FieldNote`: community-page editorial cards linked to a Buddy through `authorSlug`.
 - `Booking`: private member-authored availability requests. Personal data is not publicly readable.
+- `SupportMessage`: visitor support messages. Visitors can submit, but only administrators can read or manage entries.
+- `BuddyApplication`: prospective Buddy applications. Visitors can submit, but only administrators can read or manage entries.
 
 The frontend defaults to those collection IDs. Alternate Wix projects can override them:
 
@@ -34,13 +36,15 @@ VITE_WIX_STEPS_COLLECTION_ID=ActivityStep
 VITE_WIX_REVIEWS_COLLECTION_ID=Review
 VITE_WIX_FIELD_NOTES_COLLECTION_ID=FieldNote
 VITE_WIX_BOOKINGS_COLLECTION_ID=Booking
+VITE_WIX_SUPPORT_COLLECTION_ID=SupportMessage
+VITE_WIX_BUDDY_APPLICATIONS_COLLECTION_ID=BuddyApplication
 ```
 
 Public content collections allow anonymous reads and administrator writes. `Booking` allows signed-in members to insert their own request and limits reads to the author and administrators.
 
 ## What remains in the frontend
 
-Brand copy, navigation labels, help text, trust statements, search options, footer content, and interface state remain in source code because they are presentation-level copy rather than frequently managed catalog data. The Buddy application and support widgets currently provide preview interactions only; production submission requires a protected server-side endpoint, validation, and anti-spam controls.
+Brand copy, navigation labels, help text, trust statements, search options, footer content, and interface state remain in source code because they are presentation-level copy rather than frequently managed catalog data. Buddy applications and support messages are persisted in private Wix collections. Because submission is available to anonymous visitors, production traffic should be monitored and protected with rate limiting or CAPTCHA if abuse appears.
 
 ## Local development
 

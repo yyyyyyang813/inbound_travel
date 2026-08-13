@@ -5,7 +5,9 @@ import {
   isWixMemberLoggedIn,
   loadWixCatalog,
   logoutWixMember,
+  submitWixBuddyApplication,
   submitWixBookingRequest,
+  submitWixSupportMessage,
   wixImageUrl,
   type WixContentItem,
 } from "./wix";
@@ -337,7 +339,28 @@ function TourView({ tour, favorite, toggleFavorite }: { tour: Tour; favorite: bo
 
 function BuddyView({ buddies }: { buddies: Buddy[] }) {
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const leadBuddy = buddies[0];
+  const submitApplication = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setSending(true); setSubmitError("");
+    try {
+      await submitWixBuddyApplication({
+        fullName: String(form.get("fullName") || ""),
+        city: String(form.get("city") || ""),
+        contact: String(form.get("contact") || ""),
+        experienceIdea: String(form.get("experienceIdea") || ""),
+        pageUrl: window.location.href,
+      });
+      setSent(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Your application could not be saved in Wix.");
+    } finally {
+      setSending(false);
+    }
+  };
   return <div className="buddy-page">
     <section className="buddy-hero">
       <div className="buddy-hero-copy"><p className="eyebrow">Become a China Buddy</p><h1>Show your China.<br/><i>Your way.</i></h1><p>Host small, meaningful experiences with Arctic Tern. You bring the local point of view; we help with international guests, presentation and support.</p><button onClick={() => document.getElementById("buddy-apply")?.scrollIntoView({ behavior: "smooth" })}>Start your application ↓</button></div>
@@ -346,7 +369,7 @@ function BuddyView({ buddies }: { buddies: Buddy[] }) {
     <section className="buddy-proof"><p>Built for people with a point of view—not professional tour scripts.</p><div><span><b>4.98</b> guest rating</span><span><b>4–8</b> guests per group</span><span><b>24h</b> local support</span></div></section>
     <section className="active-buddies"><div className="section-heading"><div><p className="eyebrow">Already in the community</p><h2>Four locals.<br/>Four ways into China.</h2></div><p>Artists, food lovers, engineers and storytellers—each with a personal door into the city.</p></div><div className="buddy-grid">{buddies.map((buddy, index) => <article key={buddy.name}><div className="buddy-card-photo"><img src={buddy.image} alt={`${buddy.name}, Arctic Tern Buddy in ${buddy.city}`}/><span>{String(index + 1).padStart(2, "0")} · {buddy.city}</span></div><div className="buddy-card-copy"><p className="eyebrow">{buddy.tours} guest days hosted</p><h3>{buddy.name}</h3><p>{buddy.focus}</p><span className="buddy-verified">✓ Identity & experience verified</span></div></article>)}</div></section>
     <section className="buddy-values"><article><span>01</span><h3>Host what you know</h3><p>Build around your real interests, neighborhood and relationships.</p></article><article><span>02</span><h3>Choose your rhythm</h3><p>Set your own dates, group size and availability.</p></article><article><span>03</span><h3>We handle the bridge</h3><p>Arctic Tern supports presentation, guest communication and trust.</p></article></section>
-    <section className="apply-section" id="buddy-apply"><div><p className="eyebrow">Introduce yourself</p><h2>{sent ? "Thanks—we’ll be in touch." : "What would you show a new friend?"}</h2><p>{sent ? "Our Buddy team will review your note and reply within three working days." : "A short note is enough to start. No polished tour plan required."}</p></div>{!sent && <form onSubmit={(e) => { e.preventDefault(); setSent(true); }}><div className="form-two"><label>Your name<input required placeholder="Full name"/></label><label>City<input required placeholder="Where are you based?"/></label></div><label>Email or WeChat<input required placeholder="How should we reach you?"/></label><label>Your experience idea<textarea required placeholder="Tell us what you know, love or want to share…"/></label><button className="primary">Send introduction ↗</button></form>}</section>
+    <section className="apply-section" id="buddy-apply"><div><p className="eyebrow">Introduce yourself</p><h2>{sent ? "Thanks—we’ll be in touch." : "What would you show a new friend?"}</h2><p>{sent ? "Our Buddy team will review your note and reply within three working days." : "A short note is enough to start. No polished tour plan required."}</p></div>{!sent && <form onSubmit={submitApplication}><div className="form-two"><label>Your name<input name="fullName" required placeholder="Full name"/></label><label>City<input name="city" required placeholder="Where are you based?"/></label></div><label>Email or WeChat<input name="contact" required placeholder="How should we reach you?"/></label><label>Your experience idea<textarea name="experienceIdea" required placeholder="Tell us what you know, love or want to share…"/></label>{submitError && <p className="form-error" role="alert">{submitError}</p>}<button className="primary" disabled={sending}>{sending ? "Saving to Wix…" : "Send introduction ↗"}</button></form>}</section>
   </div>;
 }
 
@@ -398,7 +421,25 @@ function CheckoutView({ tour, memberLoggedIn, requestSignIn }: { tour: Tour; mem
 
 function CustomerCare() {
   const [open, setOpen] = useState(false); const [sent, setSent] = useState(false);
-  return <div className="care-widget"><div className={open ? "care-panel open" : "care-panel"} aria-hidden={!open}><div className="care-head"><div className="care-avatar"><img src={IMAGES.lina} alt="Arctic Tern support"/><span/></div><div><b>Arctic Tern support</b><small>Usually replies in a few minutes</small></div><button onClick={() => setOpen(false)} aria-label="Close support">×</button></div>{sent ? <div className="care-success"><span>✓</span><h3>Message received.</h3><p>Leave this page open or add your email. Our team will follow up shortly.</p><button onClick={() => setSent(false)}>Send another message</button></div> : <form onSubmit={(e) => { e.preventDefault(); setSent(true); }}><p>Hi! Ask about an experience, trip planning or becoming a Buddy.</p><label>Your message<textarea required placeholder="How can we help?"/></label><label>Email (optional)<input type="email" placeholder="you@example.com"/></label><button className="primary">Send message ↗</button><small>Human support · No automated booking</small></form>}</div><button className={open ? "care-trigger active" : "care-trigger"} onClick={() => setOpen(!open)} aria-label="Contact customer support"><span>{open ? "×" : "?"}</span><b>{open ? "Close" : "Ask Arctic Tern"}</b></button></div>;
+  const [sending, setSending] = useState(false); const [submitError, setSubmitError] = useState("");
+  const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setSending(true); setSubmitError("");
+    try {
+      await submitWixSupportMessage({
+        message: String(form.get("message") || ""),
+        email: String(form.get("email") || ""),
+        pageUrl: window.location.href,
+      });
+      setSent(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Your message could not be saved in Wix.");
+    } finally {
+      setSending(false);
+    }
+  };
+  return <div className="care-widget"><div className={open ? "care-panel open" : "care-panel"} aria-hidden={!open}><div className="care-head"><div className="care-avatar"><img src={IMAGES.lina} alt="Arctic Tern support"/><span/></div><div><b>Arctic Tern support</b><small>Usually replies in a few minutes</small></div><button onClick={() => setOpen(false)} aria-label="Close support">×</button></div>{sent ? <div className="care-success"><span>✓</span><h3>Message received.</h3><p>Leave this page open or add your email. Our team will follow up shortly.</p><button onClick={() => { setSent(false); setSubmitError(""); }}>Send another message</button></div> : <form onSubmit={submitMessage}><p>Hi! Ask about an experience, trip planning or becoming a Buddy.</p><label>Your message<textarea name="message" required placeholder="How can we help?"/></label><label>Email (optional)<input name="email" type="email" placeholder="you@example.com"/></label>{submitError && <p className="form-error" role="alert">{submitError}</p>}<button className="primary" disabled={sending}>{sending ? "Saving to Wix…" : "Send message ↗"}</button><small>Human support · No automated booking</small></form>}</div><button className={open ? "care-trigger active" : "care-trigger"} onClick={() => setOpen(!open)} aria-label="Contact customer support"><span>{open ? "×" : "?"}</span><b>{open ? "Close" : "Ask Arctic Tern"}</b></button></div>;
 }
 
 function AuthModal({ close, memberLoggedIn, busy, error, connected, startLogin, signOut }: { close: () => void; memberLoggedIn: boolean; busy: boolean; error: string; connected: boolean; startLogin: () => void; signOut: () => void }) { return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="auth-title"><div className="auth-modal"><button className="modal-close" onClick={close} aria-label="Close account dialog">×</button><p className="eyebrow">Arctic Tern membership</p><h2 id="auth-title">{memberLoggedIn ? "You’re signed in." : "Keep your China closer."}</h2><p>{memberLoggedIn ? "Your Wix member session is active. Booking requests can now be linked to your account." : "Use Wix’s secure member page to sign in or create an account."}</p>{error && <p className="form-error" role="alert">{error}</p>}<button className="primary auth-primary" disabled={busy} onClick={memberLoggedIn ? signOut : startLogin}>{busy ? "Connecting…" : memberLoggedIn ? "Sign out" : "Continue to secure sign in"}</button><small><span className={connected ? "service-dot online" : "service-dot"}/>{connected ? "Wix CMS connected" : "Wix member access ready · CMS collections pending"}</small></div></div>; }
