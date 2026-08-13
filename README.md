@@ -23,8 +23,8 @@ Production content uses these Wix CMS collections:
 - `Review`: ordered guest reviews linked through `activitySlug`.
 - `FieldNote`: community-page editorial cards linked to a Buddy through `authorSlug`.
 - `Booking`: private member-authored availability requests. Personal data is not publicly readable.
-- `SupportMessage`: visitor support messages. Visitors can submit, but only administrators can read or manage entries.
-- `BuddyApplication`: prospective Buddy applications. Visitors can submit, but only administrators can read or manage entries.
+- `SupportMessage`: member support messages. Signed-in members can submit, but only administrators can read or manage entries.
+- `BuddyApplication`: prospective Buddy applications. Signed-in members can submit, but only administrators can read or manage entries.
 
 The frontend defaults to those collection IDs. Alternate Wix projects can override them:
 

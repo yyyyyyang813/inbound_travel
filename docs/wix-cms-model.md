@@ -20,7 +20,7 @@ All public content collections are readable by visitors and writable only by sit
 
 Key request fields are `activitySlug`, `activityTitle`, `preferredDate`, `guests`, `estimatedTotal`, `currency`, `fullName`, `whatsapp`, `email`, `specialRequests`, `preferredPayment`, `status`, `source`, and `submittedAt`.
 
-`SupportMessage` stores visitor support requests. `BuddyApplication` stores prospective Buddy introductions. Both allow anonymous inserts so the public forms work without sign-in, while reads, updates, and removals are restricted to administrators.
+`SupportMessage` stores member support requests. `BuddyApplication` stores prospective Buddy introductions. Both require a signed-in Wix member for inserts, while reads, updates, and removals are restricted to administrators.
 
 ## Migration
 

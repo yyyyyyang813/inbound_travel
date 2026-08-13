@@ -101,7 +101,6 @@ const tours: Tour[] = [
   }
 ];
 
-const categories = ["All", "Sightseeing", "Foodie", "Photo & Art", "Self-drive", "Medical", "Supply chain", "Tech"];
 const cities = ["All cities", "Shenzhen", "Guangzhou", "Shanghai", "Beijing", "Chengdu"];
 const buddies: Buddy[] = [
   { name: "Sarah Zhao", image: IMAGES.sarah, focus: "Heritage & hidden tables", city: "Shenzhen", tours: 126 },
@@ -272,6 +271,7 @@ export default function App() {
     setFavorites(next); window.localStorage.setItem("arctic-tern-favorites", JSON.stringify(next));
   };
   const selected = catalogTours.find((tour) => tour.id === tourId) || catalogTours[0] || null;
+  const categories = useMemo(() => ["All", ...Array.from(new Set(catalogTours.map((tour) => tour.category).filter(Boolean)))], [catalogTours]);
   const filtered = useMemo(() => catalogTours.filter((tour) => {
     const categoryMatch = category === "All" || tour.category === category;
     const cityMatch = city === "All cities" || tour.city === city;
@@ -282,13 +282,13 @@ export default function App() {
   return <main>
     <div className="notice">China Buddy by Arctic Tern · Private, English-friendly experiences · Replies within 24 hours</div>
     <Header view={view} menu={menu} setMenu={setMenu} setAuth={setAuth} memberLoggedIn={memberLoggedIn} />
-    {view === "home" && <HomeView category={category} setCategory={setCategory} city={city} setCity={setCity} query={query} setQuery={setQuery} filtered={filtered} hasCatalogTours={catalogTours.length > 0} buddies={catalogBuddies} favorites={favorites} toggleFavorite={toggleFavorite} />}
+    {view === "home" && <HomeView categories={categories} category={category} setCategory={setCategory} city={city} setCity={setCity} query={query} setQuery={setQuery} filtered={filtered} hasCatalogTours={catalogTours.length > 0} buddies={catalogBuddies} favorites={favorites} toggleFavorite={toggleFavorite} />}
     {view === "tour" && selected && <TourView tour={selected} favorite={favorites.includes(selected.id)} toggleFavorite={toggleFavorite} />}
     {view === "community" && <CommunityView posts={fieldNotes} />}
     {view === "checkout" && selected && <CheckoutView tour={selected} memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />}
-    {view === "buddy" && <BuddyView buddies={catalogBuddies} />}
+    {view === "buddy" && <BuddyView buddies={catalogBuddies} memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />}
     <Footer />
-    <CustomerCare />
+    <CustomerCare memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />
     {auth && <AuthModal close={() => setAuth(false)} memberLoggedIn={memberLoggedIn} busy={authBusy} error={authError} connected={wixConnected} startLogin={startLogin} signOut={signOut} />}
   </main>;
 }
@@ -297,26 +297,31 @@ function Header({ view, menu, setMenu, setAuth, memberLoggedIn }: { view: View; 
   return <header className="site-header">
     <button className="brand" onClick={() => go("home")}><span className="brand-mark">AT</span><span>ARCTIC TERN <em>China Buddy</em></span></button>
     <nav className={menu ? "nav open" : "nav"} aria-label="Primary navigation">
-      <button className={view === "home" ? "active" : ""} onClick={() => { go("home"); setMenu(false); }}>Experiences</button>
-      <button className={view === "community" ? "active" : ""} onClick={() => { go("community"); setMenu(false); }}>Field Notes</button>
-      <button className={view === "buddy" ? "active" : ""} onClick={() => { go("buddy"); setMenu(false); }}>Become a buddy</button>
+      <button className={view === "home" ? "active" : ""} onClick={() => { go("home"); setMenu(false); }}>Find A Buddy</button>
+      <button className={view === "community" ? "active" : ""} onClick={() => { go("community"); setMenu(false); }}>Community</button>
+      <button className={view === "buddy" ? "active" : ""} onClick={() => { go("buddy"); setMenu(false); }}>Our Buddies</button>
     </nav>
     <div className="header-actions"><button className="quiet">EN · USD</button><button className="outline" onClick={() => setAuth(true)}>{memberLoggedIn ? "Account" : "Sign in"}</button><button className="menu-button" onClick={() => setMenu(!menu)} aria-label="Toggle menu">{menu ? "×" : "☰"}</button></div>
   </header>;
 }
 
-function HomeView({ category, setCategory, city, setCity, query, setQuery, filtered, hasCatalogTours, buddies, favorites, toggleFavorite }: { category: string; setCategory: (v: string) => void; city: string; setCity: (v: string) => void; query: string; setQuery: (v: string) => void; filtered: Tour[]; hasCatalogTours: boolean; buddies: Buddy[]; favorites: string[]; toggleFavorite: (id: string) => void }) {
+function HomeView({ categories, category, setCategory, city, setCity, query, setQuery, filtered, hasCatalogTours, buddies, favorites, toggleFavorite }: { categories: string[]; category: string; setCategory: (v: string) => void; city: string; setCity: (v: string) => void; query: string; setQuery: (v: string) => void; filtered: Tour[]; hasCatalogTours: boolean; buddies: Buddy[]; favorites: string[]; toggleFavorite: (id: string) => void }) {
+  const buddyWall = buddies.slice(0, 8);
   return <>
     <section className="hero">
       <div className="hero-copy"><p className="eyebrow">Arctic Tern presents · China Buddy</p><h1>Meet China through<br/><i>someone local.</i></h1><p className="hero-lede">Not just a guide. A real person who knows the shortcuts, stories and tables—and helps China feel easy from the first hello.</p><div className="hero-stats"><span><b>4.98</b> average rating</span><span><b>100%</b> locally hosted</span><span><b>24h</b> human response</span></div></div>
       <div className="hero-image"><img src={IMAGES.people} alt="Local buddies and travelers sharing a day together"/><div className="hero-buddy"><img src={IMAGES.sarah} alt="Sarah Zhao"/><span><small>Your China Buddy</small><b>Sarah · Shenzhen</b></span></div><span className="image-label">People make the place</span></div>
       <div className="search-dock"><label><span>City</span><select value={city} onChange={(e) => setCity(e.target.value)}>{cities.map((item) => <option key={item}>{item}</option>)}</select></label><label><span>What interests you?</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Art, food or technology"/></label><label><span>When</span><input type="date" /></label><label><span>Experience</span><select value={category} onChange={(e) => setCategory(e.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label><button onClick={() => document.getElementById("experiences")?.scrollIntoView({ behavior: "smooth" })}>Find a buddy ↗</button></div>
     </section>
-    <section className="people-strip"><div><p className="eyebrow">A familiar face in a new city</p><h2>Come for China.<br/>Remember the people.</h2></div><div className="people-stack">{buddies.slice(0,4).map((buddy) => <img key={buddy.name} src={buddy.image} alt={buddy.name}/>)}</div><p>Every experience is shaped and hosted by a verified local Buddy—not an anonymous operator.</p></section>
+    {!!buddyWall.length && <section className="buddy-wall-section"><div className="buddy-wall-heading"><div><p className="eyebrow">Meet our China Buddies</p><h2>People make<br/>the place.</h2></div><p>Every experience is shaped and hosted by a verified local Buddy—not an anonymous operator.</p></div><div className="buddy-wall" aria-label="Arctic Tern Buddy photo wall"><div className="buddy-wall-track"><div className="buddy-wall-group">{buddyWall.map((buddy) => <BuddyWallCard buddy={buddy} key={buddy.name}/>)}</div><div className="buddy-wall-group" aria-hidden="true">{buddyWall.map((buddy) => <BuddyWallCard buddy={buddy} key={`copy-${buddy.name}`}/>)}</div></div></div></section>}
     <section className="categories" aria-label="Experience categories">{categories.map((item, i) => <button key={item} className={category === item ? "selected" : ""} onClick={() => setCategory(item)}><span>{String(i + 1).padStart(2, "0")}</span>{item}</button>)}</section>
     <section className="experience-section" id="experiences"><div className="section-heading"><div><p className="eyebrow">Buddy-led in China</p><h2>Choose who takes you in.</h2></div><p>Small groups, transparent pricing and a local who can translate more than words.</p></div><div className="tour-grid">{filtered.map((tour, i) => <article className="tour-card" key={tour.id}><div className="card-image"><img src={tour.image} alt={`${tour.host} hosting ${tour.category.toLowerCase()} guests`}/><span className="card-index">0{i + 1}</span><button className={favorites.includes(tour.id) ? "heart saved" : "heart"} onClick={() => toggleFavorite(tour.id)} aria-label="Save experience">{favorites.includes(tour.id) ? "♥" : "♡"}</button><div className="card-host"><img src={tour.hostImage} alt=""/><span>with <b>{tour.host}</b></span></div></div><div className="card-meta"><span>{tour.category}</span><span>★ {tour.rating} ({tour.reviews})</span></div><button className="card-title" onClick={() => go("tour", tour.id)}>{tour.title}</button><div className="card-bottom"><span>{tour.duration} · {tour.city}</span><span>from <b>${tour.price}</b> / person</span></div></article>)}</div>{hasCatalogTours && !filtered.length && <div className="empty">No experiences match this city and category yet. Try Shenzhen or adjust your filters.</div>}</section>
     <section className="buddy-banner"><div className="buddy-banner-image"><img src={IMAGES.team} alt="Local buddies meeting and planning experiences"/></div><div className="buddy-banner-copy"><p className="eyebrow">Become a China Buddy</p><h2>Your version of China is worth sharing.</h2><p>Turn your local knowledge, language skills and point of view into thoughtful experiences for curious travelers.</p><button onClick={() => go("buddy")}>Meet the community & apply ↗</button></div></section>
   </>;
+}
+
+function BuddyWallCard({ buddy }: { buddy: Buddy }) {
+  return <article className="buddy-wall-card"><img src={buddy.image} alt={buddy.name}/><div><b>{buddy.name}</b><span>{buddy.city} · {buddy.focus}</span></div></article>;
 }
 
 function TourView({ tour, favorite, toggleFavorite }: { tour: Tour; favorite: boolean; toggleFavorite: (id: string) => void }) {
@@ -337,13 +342,18 @@ function TourView({ tour, favorite, toggleFavorite }: { tour: Tour; favorite: bo
   </div>;
 }
 
-function BuddyView({ buddies }: { buddies: Buddy[] }) {
+function BuddyView({ buddies, memberLoggedIn, requestSignIn }: { buddies: Buddy[]; memberLoggedIn: boolean; requestSignIn: () => void }) {
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const leadBuddy = buddies[0];
   const submitApplication = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!memberLoggedIn) {
+      setSubmitError("Please sign in or register before sending a Buddy application.");
+      requestSignIn();
+      return;
+    }
     const form = new FormData(event.currentTarget);
     setSending(true); setSubmitError("");
     try {
@@ -369,7 +379,7 @@ function BuddyView({ buddies }: { buddies: Buddy[] }) {
     <section className="buddy-proof"><p>Built for people with a point of view—not professional tour scripts.</p><div><span><b>4.98</b> guest rating</span><span><b>4–8</b> guests per group</span><span><b>24h</b> local support</span></div></section>
     <section className="active-buddies"><div className="section-heading"><div><p className="eyebrow">Already in the community</p><h2>Four locals.<br/>Four ways into China.</h2></div><p>Artists, food lovers, engineers and storytellers—each with a personal door into the city.</p></div><div className="buddy-grid">{buddies.map((buddy, index) => <article key={buddy.name}><div className="buddy-card-photo"><img src={buddy.image} alt={`${buddy.name}, Arctic Tern Buddy in ${buddy.city}`}/><span>{String(index + 1).padStart(2, "0")} · {buddy.city}</span></div><div className="buddy-card-copy"><p className="eyebrow">{buddy.tours} guest days hosted</p><h3>{buddy.name}</h3><p>{buddy.focus}</p><span className="buddy-verified">✓ Identity & experience verified</span></div></article>)}</div></section>
     <section className="buddy-values"><article><span>01</span><h3>Host what you know</h3><p>Build around your real interests, neighborhood and relationships.</p></article><article><span>02</span><h3>Choose your rhythm</h3><p>Set your own dates, group size and availability.</p></article><article><span>03</span><h3>We handle the bridge</h3><p>Arctic Tern supports presentation, guest communication and trust.</p></article></section>
-    <section className="apply-section" id="buddy-apply"><div><p className="eyebrow">Introduce yourself</p><h2>{sent ? "Thanks—we’ll be in touch." : "What would you show a new friend?"}</h2><p>{sent ? "Our Buddy team will review your note and reply within three working days." : "A short note is enough to start. No polished tour plan required."}</p></div>{!sent && <form onSubmit={submitApplication}><div className="form-two"><label>Your name<input name="fullName" required placeholder="Full name"/></label><label>City<input name="city" required placeholder="Where are you based?"/></label></div><label>Email or WeChat<input name="contact" required placeholder="How should we reach you?"/></label><label>Your experience idea<textarea name="experienceIdea" required placeholder="Tell us what you know, love or want to share…"/></label>{submitError && <p className="form-error" role="alert">{submitError}</p>}<button className="primary" disabled={sending}>{sending ? "Saving to Wix…" : "Send introduction ↗"}</button></form>}</section>
+    <section className="apply-section" id="buddy-apply"><div><p className="eyebrow">Introduce yourself</p><h2>{sent ? "Thanks—we’ll be in touch." : "What would you show a new friend?"}</h2><p>{sent ? "Our Buddy team will review your note and reply within three working days." : "A short note is enough to start. Sign in to send it to our Buddy team."}</p></div>{!sent && <form onSubmit={submitApplication}><div className="form-two"><label>Your name<input name="fullName" required placeholder="Full name"/></label><label>City<input name="city" required placeholder="Where are you based?"/></label></div><label>Email or WeChat<input name="contact" required placeholder="How should we reach you?"/></label><label>Your experience idea<textarea name="experienceIdea" required placeholder="Tell us what you know, love or want to share…"/></label>{submitError && <p className="form-error" role="alert">{submitError}</p>}<button className="primary" type={memberLoggedIn ? "submit" : "button"} disabled={sending} onClick={() => { if (!memberLoggedIn) { setSubmitError("Please sign in or register before sending a Buddy application."); requestSignIn(); } }}>{sending ? "Saving to Wix…" : memberLoggedIn ? "Send introduction ↗" : "Sign in to apply"}</button></form>}</section>
   </div>;
 }
 
@@ -419,11 +429,16 @@ function CheckoutView({ tour, memberLoggedIn, requestSignIn }: { tour: Tour; mem
   return <div className="checkout-page"><button className="back" onClick={() => go("tour", tour.id)}>← Back to experience</button><div className="checkout-heading"><p className="eyebrow">Secure request · Arctic Tern</p><h1>One last step.</h1><p>Share how we can reach you. We’ll confirm with your Buddy before any payment.</p></div><form className="checkout-grid" onSubmit={submitRequest}><div className="contact-form"><h2>Contact details</h2><p>Used only to confirm this booking.</p><div className="form-two"><label>Full name<input name="fullName" required placeholder="Your name"/></label><label>WhatsApp number<input name="whatsapp" required placeholder="+1 202 555 0182"/></label></div><label>Email address<input name="email" required type="email" placeholder="you@example.com"/></label><label>Special requests<textarea name="specialRequests" placeholder="Dietary needs, children, accessibility…"/></label><h2 className="payment-title">Preferred payment</h2><p>You’ll receive a secure link only after confirmation.</p><div className="payment-options"><button type="button" className={payment === "card" ? "chosen" : ""} onClick={() => setPayment("card")}>◉ &nbsp; Credit or debit card</button><button type="button" className={payment === "paypal" ? "chosen" : ""} onClick={() => setPayment("paypal")}>P &nbsp; PayPal</button></div>{submitError && <p className="form-error" role="alert">{submitError}</p>}</div><aside className="order-card"><img src={tour.image} alt=""/><div className="mini-host"><img src={tour.hostImage} alt=""/><span>with {tour.host}</span></div><p className="eyebrow">Your experience</p><h3>{tour.title}</h3><div className="order-lines"><span>Date <b>{booking.date || "Flexible"}</b></span><span>Guests <b>{guests}</b></span><span>Experience <b>${tour.price * guests}</b></span><span>Booking fee <b>$0</b></span></div><div className="order-total"><span>Estimated total</span><strong>${tour.price * guests} USD</strong></div><button className="primary" type="submit" disabled={sending}>{sending ? "Saving to Wix…" : memberLoggedIn ? "Send booking request" : "Sign in to request"}</button><small>By continuing, you agree to our booking terms and privacy policy.</small></aside></form></div>;
 }
 
-function CustomerCare() {
+function CustomerCare({ memberLoggedIn, requestSignIn }: { memberLoggedIn: boolean; requestSignIn: () => void }) {
   const [open, setOpen] = useState(false); const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false); const [submitError, setSubmitError] = useState("");
   const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!memberLoggedIn) {
+      setSubmitError("Please sign in or register before sending a support message.");
+      requestSignIn();
+      return;
+    }
     const form = new FormData(event.currentTarget);
     setSending(true); setSubmitError("");
     try {
@@ -439,9 +454,9 @@ function CustomerCare() {
       setSending(false);
     }
   };
-  return <div className="care-widget"><div className={open ? "care-panel open" : "care-panel"} aria-hidden={!open}><div className="care-head"><div className="care-avatar"><img src={IMAGES.lina} alt="Arctic Tern support"/><span/></div><div><b>Arctic Tern support</b><small>Usually replies in a few minutes</small></div><button onClick={() => setOpen(false)} aria-label="Close support">×</button></div>{sent ? <div className="care-success"><span>✓</span><h3>Message received.</h3><p>Leave this page open or add your email. Our team will follow up shortly.</p><button onClick={() => { setSent(false); setSubmitError(""); }}>Send another message</button></div> : <form onSubmit={submitMessage}><p>Hi! Ask about an experience, trip planning or becoming a Buddy.</p><label>Your message<textarea name="message" required placeholder="How can we help?"/></label><label>Email (optional)<input name="email" type="email" placeholder="you@example.com"/></label>{submitError && <p className="form-error" role="alert">{submitError}</p>}<button className="primary" disabled={sending}>{sending ? "Saving to Wix…" : "Send message ↗"}</button><small>Human support · No automated booking</small></form>}</div><button className={open ? "care-trigger active" : "care-trigger"} onClick={() => setOpen(!open)} aria-label="Contact customer support"><span>{open ? "×" : "?"}</span><b>{open ? "Close" : "Ask Arctic Tern"}</b></button></div>;
+  return <div className="care-widget"><div className={open ? "care-panel open" : "care-panel"} aria-hidden={!open}><div className="care-head"><div className="care-avatar"><img src={IMAGES.lina} alt="Arctic Tern support"/><span/></div><div><b>Arctic Tern support</b><small>Usually replies in a few minutes</small></div><button onClick={() => setOpen(false)} aria-label="Close support">×</button></div>{sent ? <div className="care-success"><span>✓</span><h3>Message received.</h3><p>Leave this page open or add your email. Our team will follow up shortly.</p><button onClick={() => { setSent(false); setSubmitError(""); }}>Send another message</button></div> : <form onSubmit={submitMessage}><p>Hi! Ask about an experience, trip planning or becoming a Buddy.</p><label>Your message<textarea name="message" required placeholder="How can we help?"/></label><label>Email (optional)<input name="email" type="email" placeholder="you@example.com"/></label>{submitError && <p className="form-error" role="alert">{submitError}</p>}<button className="primary" type={memberLoggedIn ? "submit" : "button"} disabled={sending} onClick={() => { if (!memberLoggedIn) { setSubmitError("Please sign in or register before sending a support message."); requestSignIn(); } }}>{sending ? "Saving to Wix…" : memberLoggedIn ? "Send message ↗" : "Sign in to send"}</button><small>Member message · Human support</small></form>}</div><button className={open ? "care-trigger active" : "care-trigger"} onClick={() => setOpen(!open)} aria-label="Contact customer support"><span>{open ? "×" : "?"}</span><b>{open ? "Close" : "Ask Arctic Tern"}</b></button></div>;
 }
 
 function AuthModal({ close, memberLoggedIn, busy, error, connected, startLogin, signOut }: { close: () => void; memberLoggedIn: boolean; busy: boolean; error: string; connected: boolean; startLogin: () => void; signOut: () => void }) { return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="auth-title"><div className="auth-modal"><button className="modal-close" onClick={close} aria-label="Close account dialog">×</button><p className="eyebrow">Arctic Tern membership</p><h2 id="auth-title">{memberLoggedIn ? "You’re signed in." : "Keep your China closer."}</h2><p>{memberLoggedIn ? "Your Wix member session is active. Booking requests can now be linked to your account." : "Use Wix’s secure member page to sign in or create an account."}</p>{error && <p className="form-error" role="alert">{error}</p>}<button className="primary auth-primary" disabled={busy} onClick={memberLoggedIn ? signOut : startLogin}>{busy ? "Connecting…" : memberLoggedIn ? "Sign out" : "Continue to secure sign in"}</button><small><span className={connected ? "service-dot online" : "service-dot"}/>{connected ? "Wix CMS connected" : "Wix member access ready · CMS collections pending"}</small></div></div>; }
 
-function Footer() { return <footer className="footer"><div className="footer-brand"><span className="brand-mark">AT</span><div><b>ARCTIC TERN</b><p>China Buddy experiences, thoughtfully hosted.</p></div></div><div><h4>Explore</h4><button onClick={() => go("home")}>Experiences</button><button onClick={() => go("community")}>Field Notes</button><button onClick={() => go("buddy")}>Become a Buddy</button></div><div><h4>Support</h4><button type="button">Booking help</button><button type="button">Safety & trust</button><button type="button">Cancellation</button><button type="button">About us</button></div><div className="newsletter"><h4>Notes from China</h4><p>One useful local note, occasionally.</p><label><input placeholder="Email address"/><button>→</button></label></div><p className="copyright">© 2026 Arctic Tern · China Buddy · Built around people, not checklists</p></footer>; }
+function Footer() { return <footer className="footer"><div className="footer-brand"><span className="brand-mark">AT</span><div><b>ARCTIC TERN</b><p>China Buddy experiences, thoughtfully hosted.</p></div></div><div><h4>Explore</h4><button onClick={() => go("home")}>Find A Buddy</button><button onClick={() => go("community")}>Community</button><button onClick={() => go("buddy")}>Our Buddies</button></div><div><h4>Support</h4><button type="button">Booking help</button><button type="button">Safety & trust</button><button type="button">Cancellation</button><button type="button">About us</button></div><div className="newsletter"><h4>Notes from China</h4><p>One useful local note, occasionally.</p><label><input placeholder="Email address"/><button>→</button></label></div><p className="copyright">© 2026 Arctic Tern · China Buddy · Built around people, not checklists</p></footer>; }
