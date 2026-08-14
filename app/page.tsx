@@ -11,6 +11,7 @@ import {
   wixImageUrl,
   type WixContentItem,
 } from "./wix";
+import logo from "./assets/logo.png";
 
 type View = "home" | "tour" | "community" | "checkout" | "buddy";
 type Review = { name: string; place: string; date: string; text: string };
@@ -22,6 +23,8 @@ type Tour = {
 };
 type Buddy = { name: string; image: string; focus: string; city: string; tours: number };
 type FieldNote = { slug: string; tag: string; title: string; deck: string; image: string; read: string; authorSlug: string };
+type MatcherPreferences = { city: string; category: string; guests: number; maxBudget: number; buddy: string };
+type TourMatch = { tour: Tour; score: number; reasons: string[] };
 
 const buddyImage = (file: string) => `${import.meta.env.BASE_URL}buddies/${file}`;
 
@@ -282,7 +285,7 @@ export default function App() {
   return <main>
     <div className="notice">China Buddy by Arctic Tern · Private, English-friendly experiences · Replies within 24 hours</div>
     <Header view={view} menu={menu} setMenu={setMenu} setAuth={setAuth} memberLoggedIn={memberLoggedIn} />
-    {view === "home" && <HomeView categories={categories} category={category} setCategory={setCategory} city={city} setCity={setCity} query={query} setQuery={setQuery} filtered={filtered} hasCatalogTours={catalogTours.length > 0} buddies={catalogBuddies} favorites={favorites} toggleFavorite={toggleFavorite} />}
+    {view === "home" && <HomeView allTours={catalogTours} categories={categories} category={category} setCategory={setCategory} city={city} setCity={setCity} query={query} setQuery={setQuery} filtered={filtered} hasCatalogTours={catalogTours.length > 0} buddies={catalogBuddies} favorites={favorites} toggleFavorite={toggleFavorite} />}
     {view === "tour" && selected && <TourView tour={selected} favorite={favorites.includes(selected.id)} toggleFavorite={toggleFavorite} />}
     {view === "community" && <CommunityView posts={fieldNotes} />}
     {view === "checkout" && selected && <CheckoutView tour={selected} memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />}
@@ -295,7 +298,7 @@ export default function App() {
 
 function Header({ view, menu, setMenu, setAuth, memberLoggedIn }: { view: View; menu: boolean; setMenu: (v: boolean) => void; setAuth: (v: boolean) => void; memberLoggedIn: boolean }) {
   return <header className="site-header">
-    <button className="brand" onClick={() => go("home")}><span className="brand-mark">AT</span><span>ARCTIC TERN <em>China Buddy</em></span></button>
+    <button className="brand" onClick={() => go("home")}><img className="brand-logo" src={logo} alt="Arctic Tern China Travel Buddy"/><span>ARCTIC TERN <em>China Buddy</em></span></button>
     <nav className={menu ? "nav open" : "nav"} aria-label="Primary navigation">
       <button className={view === "home" ? "active" : ""} onClick={() => { go("home"); setMenu(false); }}>Find A Buddy</button>
       <button className={view === "community" ? "active" : ""} onClick={() => { go("community"); setMenu(false); }}>Community</button>
@@ -305,23 +308,82 @@ function Header({ view, menu, setMenu, setAuth, memberLoggedIn }: { view: View; 
   </header>;
 }
 
-function HomeView({ categories, category, setCategory, city, setCity, query, setQuery, filtered, hasCatalogTours, buddies, favorites, toggleFavorite }: { categories: string[]; category: string; setCategory: (v: string) => void; city: string; setCity: (v: string) => void; query: string; setQuery: (v: string) => void; filtered: Tour[]; hasCatalogTours: boolean; buddies: Buddy[]; favorites: string[]; toggleFavorite: (id: string) => void }) {
+function HomeView({ allTours, categories, category, setCategory, city, setCity, query, setQuery, filtered, hasCatalogTours, buddies, favorites, toggleFavorite }: { allTours: Tour[]; categories: string[]; category: string; setCategory: (v: string) => void; city: string; setCity: (v: string) => void; query: string; setQuery: (v: string) => void; filtered: Tour[]; hasCatalogTours: boolean; buddies: Buddy[]; favorites: string[]; toggleFavorite: (id: string) => void }) {
   const buddyWall = buddies.slice(0, 8);
+  const [matcherOpen, setMatcherOpen] = useState(false);
   return <>
     <section className="hero">
       <div className="hero-copy"><p className="eyebrow">Arctic Tern presents · China Buddy</p><h1>Meet China through<br/><i>someone local.</i></h1><p className="hero-lede">Not just a guide. A real person who knows the shortcuts, stories and tables—and helps China feel easy from the first hello.</p><div className="hero-stats"><span><b>4.98</b> average rating</span><span><b>100%</b> locally hosted</span><span><b>24h</b> human response</span></div></div>
       <div className="hero-image"><img src={IMAGES.people} alt="Local buddies and travelers sharing a day together"/><div className="hero-buddy"><img src={IMAGES.sarah} alt="Sarah Zhao"/><span><small>Your China Buddy</small><b>Sarah · Shenzhen</b></span></div><span className="image-label">People make the place</span></div>
       <div className="search-dock"><label><span>City</span><select value={city} onChange={(e) => setCity(e.target.value)}>{cities.map((item) => <option key={item}>{item}</option>)}</select></label><label><span>What interests you?</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Art, food or technology"/></label><label><span>When</span><input type="date" /></label><label><span>Experience</span><select value={category} onChange={(e) => setCategory(e.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label><button onClick={() => document.getElementById("experiences")?.scrollIntoView({ behavior: "smooth" })}>Find a buddy ↗</button></div>
     </section>
-    {!!buddyWall.length && <section className="buddy-wall-section"><div className="buddy-wall-heading"><div><p className="eyebrow">Meet our China Buddies</p><h2>People make<br/>the place.</h2></div><p>Every experience is shaped and hosted by a verified local Buddy—not an anonymous operator.</p></div><div className="buddy-wall" aria-label="Arctic Tern Buddy photo wall"><div className="buddy-wall-track"><div className="buddy-wall-group">{buddyWall.map((buddy) => <BuddyWallCard buddy={buddy} key={buddy.name}/>)}</div><div className="buddy-wall-group" aria-hidden="true">{buddyWall.map((buddy) => <BuddyWallCard buddy={buddy} key={`copy-${buddy.name}`}/>)}</div></div></div></section>}
+    <section className="matcher-entry"><div><p className="eyebrow">A simpler way to choose</p><h2>Tell us how you travel.<br/><i>We’ll find the closest fit.</i></h2></div><div><p>Four quick questions. Recommendations use the live Arctic Tern activity catalogue—no AI and no invented experiences.</p><button onClick={() => setMatcherOpen(true)}>Start trip matcher <span>4 questions</span></button></div></section>
     <section className="categories" aria-label="Experience categories">{categories.map((item, i) => <button key={item} className={category === item ? "selected" : ""} onClick={() => setCategory(item)}><span>{String(i + 1).padStart(2, "0")}</span>{item}</button>)}</section>
     <section className="experience-section" id="experiences"><div className="section-heading"><div><p className="eyebrow">Buddy-led in China</p><h2>Choose who takes you in.</h2></div><p>Small groups, transparent pricing and a local who can translate more than words.</p></div><div className="tour-grid">{filtered.map((tour, i) => <article className="tour-card" key={tour.id}><div className="card-image"><img src={tour.image} alt={`${tour.host} hosting ${tour.category.toLowerCase()} guests`}/><span className="card-index">0{i + 1}</span><button className={favorites.includes(tour.id) ? "heart saved" : "heart"} onClick={() => toggleFavorite(tour.id)} aria-label="Save experience">{favorites.includes(tour.id) ? "♥" : "♡"}</button><div className="card-host"><img src={tour.hostImage} alt=""/><span>with <b>{tour.host}</b></span></div></div><div className="card-meta"><span>{tour.category}</span><span>★ {tour.rating} ({tour.reviews})</span></div><button className="card-title" onClick={() => go("tour", tour.id)}>{tour.title}</button><div className="card-bottom"><span>{tour.duration} · {tour.city}</span><span>from <b>${tour.price}</b> / person</span></div></article>)}</div>{hasCatalogTours && !filtered.length && <div className="empty">No experiences match this city and category yet. Try Shenzhen or adjust your filters.</div>}</section>
+    {!!buddyWall.length && <section className="buddy-wall-section"><div className="buddy-wall-heading"><div><p className="eyebrow">Meet our China Buddies</p><h2>People make the place.</h2></div><p>Every experience is shaped and hosted by a verified local Buddy—not an anonymous operator.</p></div><div className="buddy-wall" aria-label="Arctic Tern Buddy photo wall"><div className="buddy-wall-track"><div className="buddy-wall-group">{buddyWall.map((buddy) => <BuddyWallCard buddy={buddy} key={buddy.name}/>)}</div><div className="buddy-wall-group" aria-hidden="true">{buddyWall.map((buddy) => <BuddyWallCard buddy={buddy} key={`copy-${buddy.name}`}/>)}</div></div></div></section>}
     <section className="buddy-banner"><div className="buddy-banner-image"><img src={IMAGES.team} alt="Local buddies meeting and planning experiences"/></div><div className="buddy-banner-copy"><p className="eyebrow">Become a China Buddy</p><h2>Your version of China is worth sharing.</h2><p>Turn your local knowledge, language skills and point of view into thoughtful experiences for curious travelers.</p><button onClick={() => go("buddy")}>Meet the community & apply ↗</button></div></section>
+    {matcherOpen && <TripMatcher tours={allTours} buddies={buddies} categories={categories.filter((item) => item !== "All")} close={() => setMatcherOpen(false)} />}
   </>;
 }
 
 function BuddyWallCard({ buddy }: { buddy: Buddy }) {
   return <article className="buddy-wall-card"><img src={buddy.image} alt={buddy.name}/><div><b>{buddy.name}</b><span>{buddy.city} · {buddy.focus}</span></div></article>;
+}
+
+function groupCapacity(group: string) {
+  const match = group.match(/(?:up to|max(?:imum)?)\s*(\d+)/i);
+  return match ? Number(match[1]) : 8;
+}
+
+function matchTours(tours: Tour[], preferences: MatcherPreferences): TourMatch[] {
+  return tours
+    .filter((tour) => preferences.city === "Any city" || tour.city === preferences.city)
+    .filter((tour) => preferences.guests <= groupCapacity(tour.group))
+    .filter((tour) => tour.price <= preferences.maxBudget)
+    .map((tour) => {
+      let score = 25;
+      const reasons: string[] = [];
+      if (preferences.category === "Any interest") {
+        score += 12;
+        reasons.push(`${tour.category} is open to your flexible interests`);
+      } else if (tour.category === preferences.category) {
+        score += 38;
+        reasons.push(`Strong match for ${preferences.category}`);
+      }
+      if (preferences.buddy === "No preference") {
+        score += 8;
+        reasons.push(`Hosted by ${tour.host}, with no Buddy restriction`);
+      } else if (tour.host === preferences.buddy) {
+        score += 25;
+        reasons.push(`Hosted by your preferred Buddy, ${tour.host}`);
+      }
+      if (preferences.city !== "Any city") { score += 10; reasons.push(`Available in ${tour.city}`); }
+      if (tour.price <= preferences.maxBudget * .8) { score += 8; reasons.push(`Comfortably within your $${preferences.maxBudget} per-person budget`); }
+      else reasons.push(`Within your $${preferences.maxBudget} per-person budget`);
+      score += Math.max(0, Math.min(6, (Number(tour.rating) - 4.7) * 20));
+      return { tour, score: Math.min(98, Math.round(score)), reasons: reasons.slice(0, 3) };
+    })
+    .sort((a, b) => b.score - a.score || Number(b.tour.rating) - Number(a.tour.rating))
+    .slice(0, 3);
+}
+
+function TripMatcher({ tours, buddies, categories, close }: { tours: Tour[]; buddies: Buddy[]; categories: string[]; close: () => void }) {
+  const [step, setStep] = useState(1);
+  const [preferences, setPreferences] = useState<MatcherPreferences>({ city: "Any city", category: "Any interest", guests: 2, maxBudget: 150, buddy: "No preference" });
+  const cityOptions = useMemo(() => ["Any city", ...Array.from(new Set(tours.map((tour) => tour.city).filter(Boolean)))], [tours]);
+  const matches = useMemo(() => matchTours(tours, preferences), [tours, preferences]);
+  const update = <K extends keyof MatcherPreferences>(key: K, value: MatcherPreferences[K]) => setPreferences((current) => ({ ...current, [key]: value }));
+  const reset = () => { setPreferences({ city: "Any city", category: "Any interest", guests: 2, maxBudget: 150, buddy: "No preference" }); setStep(1); };
+  return <div className="matcher-backdrop" role="dialog" aria-modal="true" aria-labelledby="matcher-title">
+    <section className="matcher-panel">
+      <header className="matcher-head"><div><p className="eyebrow">Arctic Tern trip matcher</p><span>Question {Math.min(step, 3)} of 3</span></div><button onClick={close} aria-label="Close trip matcher">×</button></header>
+      <div className="matcher-progress" aria-hidden="true"><span style={{ width: `${step >= 4 ? 100 : step * 33.333}%` }}/></div>
+      {step === 1 && <div className="matcher-step"><p className="matcher-number">01</p><h2 id="matcher-title">Where do you want to go—and what draws you in?</h2><div className="matcher-fields"><label>City<select value={preferences.city} onChange={(event) => update("city", event.target.value)}>{cityOptions.map((item) => <option key={item}>{item}</option>)}</select></label><label>Activity interest<select value={preferences.category} onChange={(event) => update("category", event.target.value)}><option>Any interest</option>{categories.map((item) => <option key={item}>{item}</option>)}</select></label></div><div className="matcher-actions"><button className="primary" onClick={() => setStep(2)}>Continue →</button></div></div>}
+      {step === 2 && <div className="matcher-step"><p className="matcher-number">02</p><h2>How many people are travelling, and what feels comfortable?</h2><div className="matcher-fields"><label>Guests<select value={preferences.guests} onChange={(event) => update("guests", Number(event.target.value))}>{[1,2,3,4,5,6,7,8].map((count) => <option value={count} key={count}>{count} {count === 1 ? "guest" : "guests"}</option>)}</select></label><label>Maximum per person<select value={preferences.maxBudget} onChange={(event) => update("maxBudget", Number(event.target.value))}><option value={75}>Up to $75</option><option value={125}>Up to $125</option><option value={200}>Up to $200</option><option value={500}>Up to $500</option></select></label></div><div className="matcher-actions"><button className="matcher-back" onClick={() => setStep(1)}>← Back</button><button className="primary" onClick={() => setStep(3)}>Continue →</button></div></div>}
+      {step === 3 && <div className="matcher-step"><p className="matcher-number">03</p><h2>Is there a Buddy you especially want to meet?</h2><div className="buddy-choice-grid"><button className={preferences.buddy === "No preference" ? "chosen" : ""} onClick={() => update("buddy", "No preference")}><span className="buddy-any">Any</span><b>No preference</b><small>Choose the closest overall match</small></button>{buddies.map((buddy) => <button className={preferences.buddy === buddy.name ? "chosen" : ""} onClick={() => update("buddy", buddy.name)} key={buddy.name}><img src={buddy.image} alt=""/><b>{buddy.name}</b><small>{buddy.city} · {buddy.focus}</small></button>)}</div><div className="matcher-actions"><button className="matcher-back" onClick={() => setStep(2)}>← Back</button><button className="primary" onClick={() => setStep(4)}>Show my matches →</button></div></div>}
+      {step === 4 && <div className="matcher-results"><div className="matcher-result-heading"><div><p className="eyebrow">Your closest fits</p><h2>{matches.length ? `${matches.length} experiences worth meeting.` : "No exact fit—yet."}</h2></div><button onClick={reset}>Start again</button></div>{matches.length ? <div className="match-list">{matches.map(({ tour, score, reasons }, index) => <article className="match-card" key={tour.id}><div className="match-image"><img src={tour.image} alt=""/><span>{index === 0 ? "Best match" : `Option ${index + 1}`}</span></div><div className="match-copy"><div className="match-score"><strong>{score}%</strong><span>match</span></div><p className="eyebrow">{tour.category} · {tour.city}</p><h3>{tour.title}</h3><ul>{reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul><div className="match-bottom"><span>with <b>{tour.host}</b> · ${tour.price}/person</span><button onClick={() => { close(); go("tour", tour.id); }}>View experience →</button></div></div></article>)}</div> : <div className="matcher-empty"><p>Try a higher budget, fewer guests, another city, or remove the Buddy preference.</p><button className="primary" onClick={reset}>Adjust my answers</button></div>}</div>}
+    </section>
+  </div>;
 }
 
 function TourView({ tour, favorite, toggleFavorite }: { tour: Tour; favorite: boolean; toggleFavorite: (id: string) => void }) {
@@ -372,12 +434,12 @@ function BuddyView({ buddies, memberLoggedIn, requestSignIn }: { buddies: Buddy[
     }
   };
   return <div className="buddy-page">
+    <section className="active-buddies active-buddies-first"><div className="section-heading"><div><p className="eyebrow">Already in the community</p><h2>Meet the people<br/>behind the place.</h2></div><p>Artists, food lovers, engineers and storytellers—each with a personal door into the city.</p></div><div className="buddy-grid">{buddies.map((buddy, index) => <article key={buddy.name}><div className="buddy-card-photo"><img src={buddy.image} alt={`${buddy.name}, Arctic Tern Buddy in ${buddy.city}`}/><span>{String(index + 1).padStart(2, "0")} · {buddy.city}</span></div><div className="buddy-card-copy"><p className="eyebrow">{buddy.tours} guest days hosted</p><h3>{buddy.name}</h3><p>{buddy.focus}</p><span className="buddy-verified">✓ Identity & experience verified</span></div></article>)}</div></section>
     <section className="buddy-hero">
       <div className="buddy-hero-copy"><p className="eyebrow">Become a China Buddy</p><h1>Show your China.<br/><i>Your way.</i></h1><p>Host small, meaningful experiences with Arctic Tern. You bring the local point of view; we help with international guests, presentation and support.</p><button onClick={() => document.getElementById("buddy-apply")?.scrollIntoView({ behavior: "smooth" })}>Start your application ↓</button></div>
       {leadBuddy && <div className="buddy-hero-visual"><img src={leadBuddy.image} alt={`${leadBuddy.name}, a verified ${leadBuddy.city} Buddy`}/><div className="buddy-hero-profile"><span className="profile-status"/><div><small>Meet {leadBuddy.name.split(" ")[0]} · {leadBuddy.city}</small><b>“I help guests read the city between the landmarks.”</b></div></div><div className="buddy-hero-stat"><strong>{leadBuddy.tours}</strong><span>guest days<br/>hosted locally</span></div></div>}
     </section>
     <section className="buddy-proof"><p>Built for people with a point of view—not professional tour scripts.</p><div><span><b>4.98</b> guest rating</span><span><b>4–8</b> guests per group</span><span><b>24h</b> local support</span></div></section>
-    <section className="active-buddies"><div className="section-heading"><div><p className="eyebrow">Already in the community</p><h2>Four locals.<br/>Four ways into China.</h2></div><p>Artists, food lovers, engineers and storytellers—each with a personal door into the city.</p></div><div className="buddy-grid">{buddies.map((buddy, index) => <article key={buddy.name}><div className="buddy-card-photo"><img src={buddy.image} alt={`${buddy.name}, Arctic Tern Buddy in ${buddy.city}`}/><span>{String(index + 1).padStart(2, "0")} · {buddy.city}</span></div><div className="buddy-card-copy"><p className="eyebrow">{buddy.tours} guest days hosted</p><h3>{buddy.name}</h3><p>{buddy.focus}</p><span className="buddy-verified">✓ Identity & experience verified</span></div></article>)}</div></section>
     <section className="buddy-values"><article><span>01</span><h3>Host what you know</h3><p>Build around your real interests, neighborhood and relationships.</p></article><article><span>02</span><h3>Choose your rhythm</h3><p>Set your own dates, group size and availability.</p></article><article><span>03</span><h3>We handle the bridge</h3><p>Arctic Tern supports presentation, guest communication and trust.</p></article></section>
     <section className="apply-section" id="buddy-apply"><div><p className="eyebrow">Introduce yourself</p><h2>{sent ? "Thanks—we’ll be in touch." : "What would you show a new friend?"}</h2><p>{sent ? "Our Buddy team will review your note and reply within three working days." : "A short note is enough to start. Sign in to send it to our Buddy team."}</p></div>{!sent && <form onSubmit={submitApplication}><div className="form-two"><label>Your name<input name="fullName" required placeholder="Full name"/></label><label>City<input name="city" required placeholder="Where are you based?"/></label></div><label>Email or WeChat<input name="contact" required placeholder="How should we reach you?"/></label><label>Your experience idea<textarea name="experienceIdea" required placeholder="Tell us what you know, love or want to share…"/></label>{submitError && <p className="form-error" role="alert">{submitError}</p>}<button className="primary" type={memberLoggedIn ? "submit" : "button"} disabled={sending} onClick={() => { if (!memberLoggedIn) { setSubmitError("Please sign in or register before sending a Buddy application."); requestSignIn(); } }}>{sending ? "Saving to Wix…" : memberLoggedIn ? "Send introduction ↗" : "Sign in to apply"}</button></form>}</section>
   </div>;
@@ -459,4 +521,4 @@ function CustomerCare({ memberLoggedIn, requestSignIn }: { memberLoggedIn: boole
 
 function AuthModal({ close, memberLoggedIn, busy, error, connected, startLogin, signOut }: { close: () => void; memberLoggedIn: boolean; busy: boolean; error: string; connected: boolean; startLogin: () => void; signOut: () => void }) { return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="auth-title"><div className="auth-modal"><button className="modal-close" onClick={close} aria-label="Close account dialog">×</button><p className="eyebrow">Arctic Tern membership</p><h2 id="auth-title">{memberLoggedIn ? "You’re signed in." : "Keep your China closer."}</h2><p>{memberLoggedIn ? "Your Wix member session is active. Booking requests can now be linked to your account." : "Use Wix’s secure member page to sign in or create an account."}</p>{error && <p className="form-error" role="alert">{error}</p>}<button className="primary auth-primary" disabled={busy} onClick={memberLoggedIn ? signOut : startLogin}>{busy ? "Connecting…" : memberLoggedIn ? "Sign out" : "Continue to secure sign in"}</button><small><span className={connected ? "service-dot online" : "service-dot"}/>{connected ? "Wix CMS connected" : "Wix member access ready · CMS collections pending"}</small></div></div>; }
 
-function Footer() { return <footer className="footer"><div className="footer-brand"><span className="brand-mark">AT</span><div><b>ARCTIC TERN</b><p>China Buddy experiences, thoughtfully hosted.</p></div></div><div><h4>Explore</h4><button onClick={() => go("home")}>Find A Buddy</button><button onClick={() => go("community")}>Community</button><button onClick={() => go("buddy")}>Our Buddies</button></div><div><h4>Support</h4><button type="button">Booking help</button><button type="button">Safety & trust</button><button type="button">Cancellation</button><button type="button">About us</button></div><div className="newsletter"><h4>Notes from China</h4><p>One useful local note, occasionally.</p><label><input placeholder="Email address"/><button>→</button></label></div><p className="copyright">© 2026 Arctic Tern · China Buddy · Built around people, not checklists</p></footer>; }
+function Footer() { return <footer className="footer"><div className="footer-brand"><img className="brand-logo footer-logo" src={logo} alt="Arctic Tern China Travel Buddy"/><div><b>ARCTIC TERN</b><p>China Buddy experiences, thoughtfully hosted.</p></div></div><div><h4>Explore</h4><button onClick={() => go("home")}>Find A Buddy</button><button onClick={() => go("community")}>Community</button><button onClick={() => go("buddy")}>Our Buddies</button></div><div><h4>Support</h4><button type="button">Booking help</button><button type="button">Safety & trust</button><button type="button">Cancellation</button><button type="button">About us</button></div><div className="newsletter"><h4>Notes from China</h4><p>One useful local note, occasionally.</p><label><input placeholder="Email address"/><button>→</button></label></div><p className="copyright">© 2026 Arctic Tern · China Buddy · Built around people, not checklists</p></footer>; }

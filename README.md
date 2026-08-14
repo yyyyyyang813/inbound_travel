@@ -5,6 +5,7 @@ React + Vite frontend for Arctic Tern's people-led China experiences. The public
 ## Features
 
 - Search and filter experiences by city and category
+- Rule-based Trip Matcher for city, interest, group size, budget, and Buddy preferences
 - Experience details with Buddy profiles, itinerary steps, reviews, and location maps
 - Buddy directory and editorial Field Notes
 - Wix-hosted member sign-in and registration
