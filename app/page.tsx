@@ -117,6 +117,23 @@ const textField = (item: WixContentItem, key: string, fallback: string) =>
 const numberField = (item: WixContentItem, key: string, fallback: number) =>
   typeof item[key] === "number" ? Number(item[key]) : fallback;
 
+const lookupKey = (value: unknown) => typeof value === "string" ? value.trim().toLocaleLowerCase() : "";
+
+function referenceKeys(value: unknown) {
+  if (typeof value === "string") return [lookupKey(value)].filter(Boolean);
+  if (!value || typeof value !== "object") return [];
+  const reference = value as Record<string, unknown>;
+  return [reference._id, reference.id, reference.slug, reference.title, reference.name]
+    .map(lookupKey)
+    .filter(Boolean);
+}
+
+function buddyKeys(item: WixContentItem) {
+  return [item._id, item.id, item.slug, item.title, item.name]
+    .map(lookupKey)
+    .filter(Boolean);
+}
+
 function dateLabel(value: unknown, fallback: string) {
   const raw = typeof value === "string" ? value : typeof value === "object" && value && "$date" in value ? String(value.$date) : "";
   if (!raw) return fallback;
@@ -126,14 +143,21 @@ function dateLabel(value: unknown, fallback: string) {
 
 function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[], stepItems: WixContentItem[], reviewItems: WixContentItem[]) {
   if (!items.length) return [];
-  const buddiesBySlug = new Map(buddyItems.map((buddy) => [textField(buddy, "slug", ""), buddy]));
+  const buddiesByKey = new Map<string, WixContentItem>();
+  buddyItems.forEach((buddy) => buddyKeys(buddy).forEach((key) => buddiesByKey.set(key, buddy)));
   return [...items]
     .filter((item) => item.active !== false)
     .sort((a, b) => numberField(a, "order", 999) - numberField(b, "order", 999))
     .map((item, index): Tour => {
     const slug = textField(item, "slug", textField(item, "id", `wix-experience-${index + 1}`));
     const fallback = tours.find((tour) => tour.id === slug) || tours[index % tours.length];
-    const cmsBuddy = buddiesBySlug.get(textField(item, "buddy", ""));
+    const buddyReferenceKeys = [
+      ...referenceKeys(item.buddy),
+      ...referenceKeys(item.buddyName),
+      ...referenceKeys(item.buddySlug),
+      ...referenceKeys(item.buddyId),
+    ];
+    const cmsBuddy = buddyReferenceKeys.map((key) => buddiesByKey.get(key)).find(Boolean);
     const rating = numberField(item, "rating", Number(fallback.rating));
     return {
       ...fallback,
@@ -148,8 +172,8 @@ function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[], st
       price: numberField(item, "priceUsd", numberField(item, "price", fallback.price)),
       image: wixImageUrl(item.firstImage, fallback.image),
       image2: wixImageUrl(item.secondImage, fallback.image2),
-      host: cmsBuddy ? textField(cmsBuddy, "name", fallback.host) : textField(item, "buddyName", fallback.host),
-      hostImage: cmsBuddy ? wixImageUrl(cmsBuddy.avatarPath, fallback.hostImage) : wixImageUrl(item.buddyImage, fallback.hostImage),
+      host: cmsBuddy ? textField(cmsBuddy, "title", textField(cmsBuddy, "name", fallback.host)) : textField(item, "buddyName", textField(item, "buddy", fallback.host)),
+      hostImage: cmsBuddy ? wixImageUrl(cmsBuddy.photo, wixImageUrl(cmsBuddy.avatarPath, fallback.hostImage)) : wixImageUrl(item.buddyImage, fallback.hostImage),
       role: cmsBuddy ? textField(cmsBuddy, "role", fallback.role) : textField(item, "buddyRole", fallback.role),
       intro: textField(item, "intro", fallback.intro),
       group: textField(item, "group", textField(item, "groupSize", fallback.group)),
