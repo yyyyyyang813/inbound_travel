@@ -8,12 +8,16 @@ This document records the production content model used by the Arctic Tern front
 | --- | --- | --- |
 | `Activities` | Experience listing and detail content | `buddy` may store a Buddy name, title, slug, ID, or reference |
 | `Buddies` | Public China Buddy profiles | `slug` is the stable public identifier |
-| `ActivityStep` | Ordered itinerary entries | `activitySlug` stores an Activity `slug` |
+| `ActivityStep` | Ordered itinerary entries with text durations such as `2h` | `activitySlug` stores an Activity `slug`; `title` is also accepted for legacy rows |
 | `Review` | Ordered guest testimonials | `activitySlug` stores an Activity `slug` |
 | `FieldNote` | Editorial cards on the community page | `authorSlug` stores a Buddy `slug` |
 | `SiteVisuals` | Global homepage and Community hero images | One `Website Images` item stores both image fields |
 
 All public content collections are readable by visitors and writable only by site administrators. `active` or `status` fields control publication where available. `order` controls display sequence.
+
+Every Activity should have a unique, stable `slug`. The frontend normalizes spaces and punctuation into URL-safe hyphens and falls back to the Activity title or CMS item ID if a slug is omitted. Detail pages are generated from the live CMS catalogue, so adding a published Activity does not require adding a React page manually.
+
+`ActivityStep.time` is a text field displayed as a duration rather than a clock time. Store concise values such as `30m`, `1.5h`, or `2h`.
 
 `SiteVisuals` uses the stable item ID `global-site-visuals`. Editors replace `homeHeroImage` for the homepage's right-hand image and `communityHeroImage` for the Community hero background.
 

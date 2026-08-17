@@ -19,7 +19,7 @@ type Tour = {
   id: string; category: string; kicker: string; title: string; duration: string; rating: string;
   reviews: number; city: string; price: number; image: string; image2: string; host: string;
   hostImage: string; role: string; intro: string; group: string; quote: string; map: string;
-  mapLabel: string; comments: Review[]; steps: { time: string; title: string; copy: string }[];
+  mapLabel: string; comments: Review[]; steps: { duration: string; title: string; copy: string }[];
 };
 type Buddy = { name: string; image: string; focus: string; city: string; tours: number };
 type FieldNote = { slug: string; tag: string; title: string; deck: string; image: string; read: string; authorSlug: string };
@@ -58,9 +58,9 @@ const tours: Tour[] = [
       { name: "Amira S.", place: "Dubai, UAE", date: "March 2026", text: "Excellent English, thoughtful planning and great help with payments and transport after the tour too." }
     ],
     steps: [
-      { time: "09:00", title: "Ancient Nantou, before the crowds", copy: "Trace the city’s origins through shaded alleys and surviving gates, with stories connecting the old county to today." },
-      { time: "11:30", title: "A local table", copy: "Share Cantonese dim sum and learn the easy etiquette that makes ordering in Shenzhen a pleasure." },
-      { time: "13:00", title: "The city from above", copy: "Finish among bold architecture and elevated views in Futian’s civic center." }
+      { duration: "2.5h", title: "Ancient Nantou, before the crowds", copy: "Trace the city’s origins through shaded alleys and surviving gates, with stories connecting the old county to today." },
+      { duration: "1.5h", title: "A local table", copy: "Share Cantonese dim sum and learn the easy etiquette that makes ordering in Shenzhen a pleasure." },
+      { duration: "2h", title: "The city from above", copy: "Finish among bold architecture and elevated views in Futian’s civic center." }
     ]
   },
   {
@@ -78,9 +78,9 @@ const tours: Tour[] = [
       { name: "Chloe B.", place: "Paris, France", date: "February 2026", text: "Perfect for a first-time visitor. Leo handled translation naturally and gave us space to explore our own interests." }
     ],
     steps: [
-      { time: "13:30", title: "Walk the world’s art factory", copy: "Peek into tucked-away studios and learn how Dafen evolved from replica hub to creative community." },
-      { time: "14:30", title: "Hands-on oil workshop", copy: "A local painter guides you stroke by stroke while Leo translates and keeps the process playful." },
-      { time: "16:00", title: "Museum & coffee", copy: "Browse contemporary work, then compare canvases over an iced drink at a neighborhood café." }
+      { duration: "1h", title: "Walk the world’s art factory", copy: "Peek into tucked-away studios and learn how Dafen evolved from replica hub to creative community." },
+      { duration: "1.5h", title: "Hands-on oil workshop", copy: "A local painter guides you stroke by stroke while Leo translates and keeps the process playful." },
+      { duration: "1.5h", title: "Museum & coffee", copy: "Browse contemporary work, then compare canvases over an iced drink at a neighborhood café." }
     ]
   },
   {
@@ -98,9 +98,9 @@ const tours: Tour[] = [
       { name: "Daniel M.", place: "London, UK", date: "March 2026", text: "Seamless from start to finish. We also got excellent food and app recommendations for the rest of our stay." }
     ],
     steps: [
-      { time: "13:00", title: "Robotics flagship showcase", copy: "Try hands-on flight controls, smart service robots and the newest consumer hardware." },
-      { time: "14:00", title: "Ride the future", copy: "Take an autonomous robotaxi through Nanshan and watch its live 3D mapping build the road around you." },
-      { time: "15:00", title: "Drone delivery by the bay", copy: "Order a drink mid-walk, track its flight and collect it from an automated coastal kiosk." }
+      { duration: "1h", title: "Robotics flagship showcase", copy: "Try hands-on flight controls, smart service robots and the newest consumer hardware." },
+      { duration: "1h", title: "Ride the future", copy: "Take an autonomous robotaxi through Nanshan and watch its live 3D mapping build the road around you." },
+      { duration: "3h", title: "Drone delivery by the bay", copy: "Order a drink mid-walk, track its flight and collect it from an automated coastal kiosk." }
     ]
   }
 ];
@@ -120,6 +120,13 @@ const numberField = (item: WixContentItem, key: string, fallback: number) =>
 
 const lookupKey = (value: unknown) => typeof value === "string" ? value.trim().toLocaleLowerCase() : "";
 
+const slugify = (value: unknown) => typeof value === "string" ? value
+  .normalize("NFKD")
+  .trim()
+  .toLocaleLowerCase()
+  .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
+  .replace(/^-+|-+$/g, "") : "";
+
 function referenceKeys(value: unknown) {
   if (typeof value === "string") return [lookupKey(value)].filter(Boolean);
   if (!value || typeof value !== "object") return [];
@@ -135,6 +142,11 @@ function buddyKeys(item: WixContentItem) {
     .filter(Boolean);
 }
 
+function matchesActivity(item: WixContentItem, activityKeys: Set<string>, includeTitle = false) {
+  const fields = ["activitySlug", "activityId", "activity", "activityTitle", ...(includeTitle ? ["title"] : [])];
+  return fields.some((field) => activityKeys.has(slugify(item[field])));
+}
+
 function dateLabel(value: unknown, fallback: string) {
   const raw = typeof value === "string" ? value : typeof value === "object" && value && "$date" in value ? String(value.$date) : "";
   if (!raw) return fallback;
@@ -145,13 +157,18 @@ function dateLabel(value: unknown, fallback: string) {
 function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[], stepItems: WixContentItem[], reviewItems: WixContentItem[]) {
   if (!items.length) return [];
   const buddiesByKey = new Map<string, WixContentItem>();
+  const usedSlugs = new Set<string>();
   buddyItems.forEach((buddy) => buddyKeys(buddy).forEach((key) => buddiesByKey.set(key, buddy)));
   return [...items]
     .filter((item) => item.active !== false)
     .sort((a, b) => numberField(a, "order", 999) - numberField(b, "order", 999))
     .map((item, index): Tour => {
-    const slug = textField(item, "slug", textField(item, "id", `wix-experience-${index + 1}`));
+    const cmsTitle = textField(item, "title", `Wix experience ${index + 1}`);
+    const requestedSlug = slugify(textField(item, "slug", textField(item, "id", cmsTitle))) || slugify(item._id) || `wix-experience-${index + 1}`;
+    const slug = usedSlugs.has(requestedSlug) ? `${requestedSlug}-${slugify(item._id) || index + 1}` : requestedSlug;
+    usedSlugs.add(slug);
     const fallback = tours.find((tour) => tour.id === slug) || tours[index % tours.length];
+    const activityKeys = new Set([slug, slugify(cmsTitle), slugify(item._id)].filter(Boolean));
     const buddyReferenceKeys = [
       ...referenceKeys(item.buddy),
       ...referenceKeys(item.buddyName),
@@ -165,7 +182,7 @@ function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[], st
       id: slug,
       category: textField(item, "category", fallback.category),
       kicker: textField(item, "kicker", fallback.kicker),
-      title: textField(item, "title", fallback.title),
+      title: cmsTitle,
       duration: textField(item, "duration", fallback.duration),
       rating: rating.toFixed(2),
       reviews: numberField(item, "reviewCount", numberField(item, "reviews", fallback.reviews)),
@@ -181,8 +198,8 @@ function mergeWixTours(items: WixContentItem[], buddyItems: WixContentItem[], st
       quote: textField(item, "quote", fallback.quote),
       map: textField(item, "mapUrl", fallback.map),
       mapLabel: textField(item, "mapLabel", fallback.mapLabel),
-      comments: reviewItems.filter((review) => textField(review, "activitySlug", "") === slug).sort((a, b) => numberField(a, "order", 999) - numberField(b, "order", 999)).map((review) => ({ name: textField(review, "reviewerName", textField(review, "title", "Guest")), place: textField(review, "location", "Verified guest"), date: dateLabel(review.date, "Recent"), text: textField(review, "text", "") })),
-      steps: stepItems.filter((step) => textField(step, "activitySlug", "") === slug).sort((a, b) => numberField(a, "order", 999) - numberField(b, "order", 999)).map((step) => ({ time: textField(step, "time", "").slice(0, 5), title: textField(step, "stepTitle", textField(step, "slug", "")), copy: textField(step, "description", textField(step, "kicker", "")) })),
+      comments: reviewItems.filter((review) => matchesActivity(review, activityKeys)).sort((a, b) => numberField(a, "order", 999) - numberField(b, "order", 999)).map((review) => ({ name: textField(review, "reviewerName", textField(review, "title", "Guest")), place: textField(review, "location", "Verified guest"), date: dateLabel(review.date, "Recent"), text: textField(review, "text", "") })),
+      steps: stepItems.filter((step) => matchesActivity(step, activityKeys, true)).sort((a, b) => numberField(a, "order", 999) - numberField(b, "order", 999)).map((step) => ({ duration: textField(step, "duration", textField(step, "time", "")), title: textField(step, "stepTitle", textField(step, "slug", "")), copy: textField(step, "description", textField(step, "kicker", "")) })),
     };
   });
 }
@@ -218,7 +235,7 @@ function mergeWixSiteVisuals(items: WixContentItem[]): SiteVisuals {
 }
 
 function go(next: View, id?: string) {
-  const hash = next === "home" ? "" : next === "tour" ? `#tour/${id}` : `#${next}`;
+  const hash = next === "home" ? "" : next === "tour" ? `#tour/${encodeURIComponent(id || "")}` : `#${next}`;
   window.history.pushState({}, "", `${window.location.pathname}${hash}`);
   window.dispatchEvent(new HashChangeEvent("hashchange"));
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -266,7 +283,12 @@ export default function App() {
   useEffect(() => {
     const sync = () => {
       const hash = window.location.hash.replace("#", "");
-      if (hash.startsWith("tour/")) { setView("tour"); setTourId(hash.split("/")[1] || tours[0].id); }
+      if (hash.startsWith("tour/")) {
+        const encodedId = hash.slice("tour/".length);
+        let decodedId = encodedId;
+        try { decodedId = decodeURIComponent(encodedId); } catch { /* Keep malformed legacy hashes readable. */ }
+        setView("tour"); setTourId(slugify(decodedId) || tours[0].id);
+      }
       else if (["community", "checkout", "buddy"].includes(hash)) setView(hash as View);
       else setView("home");
     };
@@ -308,7 +330,7 @@ export default function App() {
     const next = favorites.includes(id) ? favorites.filter((item) => item !== id) : [...favorites, id];
     setFavorites(next); window.localStorage.setItem("arctic-tern-favorites", JSON.stringify(next));
   };
-  const selected = catalogTours.find((tour) => tour.id === tourId) || catalogTours[0] || null;
+  const selected = catalogTours.find((tour) => tour.id === tourId) || null;
   const categories = useMemo(() => ["All", ...Array.from(new Set(catalogTours.map((tour) => tour.category).filter(Boolean)))], [catalogTours]);
   const filtered = useMemo(() => catalogTours.filter((tour) => {
     const categoryMatch = category === "All" || tour.category === category;
@@ -321,7 +343,7 @@ export default function App() {
     <div className="notice">China Buddy by Arctic Tern · Private, English-friendly experiences · Replies within 24 hours</div>
     <Header view={view} menu={menu} setMenu={setMenu} setAuth={setAuth} memberLoggedIn={memberLoggedIn} />
     {view === "home" && <HomeView heroImage={siteVisuals.homeHeroImage} allTours={catalogTours} categories={categories} category={category} setCategory={setCategory} city={city} setCity={setCity} query={query} setQuery={setQuery} filtered={filtered} hasCatalogTours={catalogTours.length > 0} buddies={catalogBuddies} favorites={favorites} toggleFavorite={toggleFavorite} />}
-    {view === "tour" && selected && <TourView tour={selected} favorite={favorites.includes(selected.id)} toggleFavorite={toggleFavorite} />}
+    {view === "tour" && (selected ? <TourView tour={selected} favorite={favorites.includes(selected.id)} toggleFavorite={toggleFavorite} /> : <div className="success-page"><p className="eyebrow">Activity not found</p><h1>This experience is no longer available.</h1><p>Return to the live catalogue to choose another Buddy-led activity.</p><button onClick={() => go("home")}>View all activities</button></div>)}
     {view === "community" && <CommunityView posts={fieldNotes} heroImage={siteVisuals.communityHeroImage} />}
     {view === "checkout" && selected && <CheckoutView tour={selected} memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />}
     {view === "buddy" && <BuddyView buddies={catalogBuddies} memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />}
@@ -430,7 +452,7 @@ function TourView({ tour, favorite, toggleFavorite }: { tour: Tour; favorite: bo
       <div className="facts"><span><small>Duration</small>{tour.duration}</span><span><small>Group</small>{tour.group.split(" · ")[0]}</span><span><small>Languages</small>English / Mandarin</span><span><small>Location</small>{tour.city}, China</span></div>
       <div className="host"><img className="host-avatar" src={tour.hostImage} alt={tour.host}/><div><small>Your local buddy</small><h3>{tour.host}</h3><p>{tour.role}</p></div><span className="verified">✓ identity verified</span></div>
       <article className="story"><p className="eyebrow">Overview</p><h2>What we’ll do</h2><p className="intro">{tour.intro}</p></article>
-      <div className="timeline"><p className="eyebrow">A day, well paced</p>{tour.steps.map((step, i) => <div className="timeline-row" key={step.time}><span className="timeline-count">{String(i + 1).padStart(2, "0")}</span><time>{step.time}</time><div><h3>{step.title}</h3><p>{step.copy}</p></div></div>)}</div>
+      <div className="timeline"><p className="eyebrow">A day, well paced</p>{tour.steps.map((step, i) => <div className="timeline-row" key={`${step.duration}-${step.title}-${i}`}><span className="timeline-count">{String(i + 1).padStart(2, "0")}</span><time>{step.duration}</time><div><h3>{step.title}</h3><p>{step.copy}</p></div></div>)}</div>
       <div className="included"><div><p className="eyebrow">Included</p><h2>The details are handled.</h2></div><ul><li>All admission and workshop fees</li><li>Local tastings or refreshments</li><li>English-speaking local buddy</li><li>Pre-trip messaging support</li></ul></div>
       <section className="location-section"><div className="subheading"><div><p className="eyebrow">Where we meet</p><h2>Start local.</h2></div><p>{tour.mapLabel}<br/>Exact meeting details arrive after confirmation.</p></div><div className="map-frame"><iframe title={`Map of ${tour.mapLabel}`} src={tour.map} loading="lazy"/><span>OpenStreetMap · Approximate meeting area</span></div></section>
       <section className="review-section"><div className="subheading"><div><p className="eyebrow">Guest notes</p><h2>People remember people.</h2></div><div className="review-score"><b>{tour.rating}</b><span>★★★★★<small>{tour.reviews} verified reviews</small></span></div></div><div className="review-grid">{tour.comments.map((review) => <article key={review.name}><div className="review-person"><span>{review.name.slice(0,1)}</span><div><b>{review.name}</b><small>{review.place} · {review.date}</small></div></div><p>“{review.text}”</p></article>)}</div></section>
