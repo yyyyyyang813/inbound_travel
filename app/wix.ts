@@ -11,6 +11,7 @@ export const WIX_COLLECTIONS = {
   activitySteps: import.meta.env.VITE_WIX_STEPS_COLLECTION_ID || "ActivityStep",
   reviews: import.meta.env.VITE_WIX_REVIEWS_COLLECTION_ID || "Review",
   fieldNotes: import.meta.env.VITE_WIX_FIELD_NOTES_COLLECTION_ID || "FieldNote",
+  siteVisuals: import.meta.env.VITE_WIX_SITE_VISUALS_COLLECTION_ID || "SiteVisuals",
   bookingRequests: import.meta.env.VITE_WIX_BOOKINGS_COLLECTION_ID || "Booking",
   supportMessages: import.meta.env.VITE_WIX_SUPPORT_COLLECTION_ID || "SupportMessage",
   buddyApplications: import.meta.env.VITE_WIX_BUDDY_APPLICATIONS_COLLECTION_ID || "BuddyApplication",
@@ -104,12 +105,13 @@ async function queryCollection(collectionId: string) {
 }
 
 export async function loadWixCatalog() {
-  const [experienceResult, buddyResult, stepResult, reviewResult, fieldNoteResult] = await Promise.allSettled([
+  const [experienceResult, buddyResult, stepResult, reviewResult, fieldNoteResult, siteVisualResult] = await Promise.allSettled([
     queryCollection(WIX_COLLECTIONS.experiences),
     queryCollection(WIX_COLLECTIONS.buddies),
     queryCollection(WIX_COLLECTIONS.activitySteps),
     queryCollection(WIX_COLLECTIONS.reviews),
     queryCollection(WIX_COLLECTIONS.fieldNotes),
+    queryCollection(WIX_COLLECTIONS.siteVisuals),
   ]);
 
   const experiences = experienceResult.status === "fulfilled" ? experienceResult.value : [];
@@ -117,7 +119,8 @@ export async function loadWixCatalog() {
   const steps = stepResult.status === "fulfilled" ? stepResult.value : [];
   const reviews = reviewResult.status === "fulfilled" ? reviewResult.value : [];
   const fieldNotes = fieldNoteResult.status === "fulfilled" ? fieldNoteResult.value : [];
-  const errors = [experienceResult, buddyResult, stepResult, reviewResult, fieldNoteResult]
+  const siteVisuals = siteVisualResult.status === "fulfilled" ? siteVisualResult.value : [];
+  const errors = [experienceResult, buddyResult, stepResult, reviewResult, fieldNoteResult, siteVisualResult]
     .filter((result): result is PromiseRejectedResult => result.status === "rejected")
     .map((result) => readableError(result.reason));
 
@@ -127,6 +130,7 @@ export async function loadWixCatalog() {
     steps,
     reviews,
     fieldNotes,
+    siteVisuals,
     connected: experienceResult.status === "fulfilled" || buddyResult.status === "fulfilled",
     errors,
   };

@@ -11,7 +11,7 @@ import {
   wixImageUrl,
   type WixContentItem,
 } from "./wix";
-import logo from "./assets/logo.png";
+import logo from "./assets/logo.svg";
 
 type View = "home" | "tour" | "community" | "checkout" | "buddy";
 type Review = { name: string; place: string; date: string; text: string };
@@ -23,6 +23,7 @@ type Tour = {
 };
 type Buddy = { name: string; image: string; focus: string; city: string; tours: number };
 type FieldNote = { slug: string; tag: string; title: string; deck: string; image: string; read: string; authorSlug: string };
+type SiteVisuals = { homeHeroImage: string; communityHeroImage: string };
 type MatcherPreferences = { city: string; category: string; guests: number; maxBudget: number; buddy: string };
 type TourMatch = { tour: Tour; score: number; reasons: string[] };
 
@@ -208,6 +209,14 @@ function mergeWixFieldNotes(items: WixContentItem[], buddyItems: WixContentItem[
   });
 }
 
+function mergeWixSiteVisuals(items: WixContentItem[]): SiteVisuals {
+  const item = items[0] || {};
+  return {
+    homeHeroImage: wixImageUrl(item.homeHeroImage, IMAGES.people),
+    communityHeroImage: wixImageUrl(item.communityHeroImage, IMAGES.city),
+  };
+}
+
 function go(next: View, id?: string) {
   const hash = next === "home" ? "" : next === "tour" ? `#tour/${id}` : `#${next}`;
   window.history.pushState({}, "", `${window.location.pathname}${hash}`);
@@ -251,6 +260,7 @@ export default function App() {
   const [catalogTours, setCatalogTours] = useState<Tour[]>([]);
   const [catalogBuddies, setCatalogBuddies] = useState<Buddy[]>([]);
   const [fieldNotes, setFieldNotes] = useState<FieldNote[]>([]);
+  const [siteVisuals, setSiteVisuals] = useState<SiteVisuals>({ homeHeroImage: IMAGES.people, communityHeroImage: IMAGES.city });
   const [wixConnected, setWixConnected] = useState(false);
 
   useEffect(() => {
@@ -269,6 +279,7 @@ export default function App() {
       setCatalogTours(mergeWixTours(catalog.experiences, catalog.buddies, catalog.steps, catalog.reviews));
       setCatalogBuddies(mergeWixBuddies(catalog.buddies));
       setFieldNotes(mergeWixFieldNotes(catalog.fieldNotes, catalog.buddies));
+      setSiteVisuals(mergeWixSiteVisuals(catalog.siteVisuals));
       setWixConnected(catalog.connected);
       setMemberLoggedIn(isWixMemberLoggedIn());
       if (loginError) { setAuthError(loginError); setAuth(true); }
@@ -309,9 +320,9 @@ export default function App() {
   return <main>
     <div className="notice">China Buddy by Arctic Tern · Private, English-friendly experiences · Replies within 24 hours</div>
     <Header view={view} menu={menu} setMenu={setMenu} setAuth={setAuth} memberLoggedIn={memberLoggedIn} />
-    {view === "home" && <HomeView allTours={catalogTours} categories={categories} category={category} setCategory={setCategory} city={city} setCity={setCity} query={query} setQuery={setQuery} filtered={filtered} hasCatalogTours={catalogTours.length > 0} buddies={catalogBuddies} favorites={favorites} toggleFavorite={toggleFavorite} />}
+    {view === "home" && <HomeView heroImage={siteVisuals.homeHeroImage} allTours={catalogTours} categories={categories} category={category} setCategory={setCategory} city={city} setCity={setCity} query={query} setQuery={setQuery} filtered={filtered} hasCatalogTours={catalogTours.length > 0} buddies={catalogBuddies} favorites={favorites} toggleFavorite={toggleFavorite} />}
     {view === "tour" && selected && <TourView tour={selected} favorite={favorites.includes(selected.id)} toggleFavorite={toggleFavorite} />}
-    {view === "community" && <CommunityView posts={fieldNotes} />}
+    {view === "community" && <CommunityView posts={fieldNotes} heroImage={siteVisuals.communityHeroImage} />}
     {view === "checkout" && selected && <CheckoutView tour={selected} memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />}
     {view === "buddy" && <BuddyView buddies={catalogBuddies} memberLoggedIn={memberLoggedIn} requestSignIn={() => setAuth(true)} />}
     <Footer />
@@ -332,13 +343,13 @@ function Header({ view, menu, setMenu, setAuth, memberLoggedIn }: { view: View; 
   </header>;
 }
 
-function HomeView({ allTours, categories, category, setCategory, city, setCity, query, setQuery, filtered, hasCatalogTours, buddies, favorites, toggleFavorite }: { allTours: Tour[]; categories: string[]; category: string; setCategory: (v: string) => void; city: string; setCity: (v: string) => void; query: string; setQuery: (v: string) => void; filtered: Tour[]; hasCatalogTours: boolean; buddies: Buddy[]; favorites: string[]; toggleFavorite: (id: string) => void }) {
+function HomeView({ heroImage, allTours, categories, category, setCategory, city, setCity, query, setQuery, filtered, hasCatalogTours, buddies, favorites, toggleFavorite }: { heroImage: string; allTours: Tour[]; categories: string[]; category: string; setCategory: (v: string) => void; city: string; setCity: (v: string) => void; query: string; setQuery: (v: string) => void; filtered: Tour[]; hasCatalogTours: boolean; buddies: Buddy[]; favorites: string[]; toggleFavorite: (id: string) => void }) {
   const buddyWall = buddies.slice(0, 8);
   const [matcherOpen, setMatcherOpen] = useState(false);
   return <>
     <section className="hero">
       <div className="hero-copy"><p className="eyebrow">Arctic Tern presents · China Buddy</p><h1>Meet China through<br/><i>someone local.</i></h1><p className="hero-lede">Not just a guide. A real person who knows the shortcuts, stories and tables—and helps China feel easy from the first hello.</p><div className="hero-stats"><span><b>4.98</b> average rating</span><span><b>100%</b> locally hosted</span><span><b>24h</b> human response</span></div></div>
-      <div className="hero-image"><img src={IMAGES.people} alt="Local buddies and travelers sharing a day together"/><div className="hero-buddy"><img src={IMAGES.sarah} alt="Sarah Zhao"/><span><small>Your China Buddy</small><b>Sarah · Shenzhen</b></span></div><span className="image-label">People make the place</span></div>
+      <div className="hero-image"><img src={heroImage} alt="Arctic Tern China travel experience"/></div>
       <div className="search-dock"><label><span>City</span><select value={city} onChange={(e) => setCity(e.target.value)}>{cities.map((item) => <option key={item}>{item}</option>)}</select></label><label><span>What interests you?</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Art, food or technology"/></label><label><span>When</span><input type="date" /></label><label><span>Experience</span><select value={category} onChange={(e) => setCategory(e.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label><button onClick={() => document.getElementById("experiences")?.scrollIntoView({ behavior: "smooth" })}>Find a buddy ↗</button></div>
     </section>
     <section className="matcher-entry"><div><p className="eyebrow">A simpler way to choose</p><h2>Tell us how you travel.<br/><i>We’ll find the closest fit.</i></h2></div><div><p>Four quick questions. Recommendations use the live Arctic Tern activity catalogue—no AI and no invented experiences.</p><button onClick={() => setMatcherOpen(true)}>Start trip matcher <span>4 questions</span></button></div></section>
@@ -469,9 +480,9 @@ function BuddyView({ buddies, memberLoggedIn, requestSignIn }: { buddies: Buddy[
   </div>;
 }
 
-function CommunityView({ posts }: { posts: FieldNote[] }) {
+function CommunityView({ posts, heroImage }: { posts: FieldNote[]; heroImage: string }) {
   const [tag, setTag] = useState("All stories"); const tags = ["All stories", "Before you go", "Food", "Culture", "Future city"];
-  return <div className="community-page"><section className="community-hero"><p className="eyebrow">Arctic Tern · Buddy Field Notes</p><h1>China explained<br/><i>by the people in it.</i></h1><p>Practical intelligence, honest recommendations and stories from our local community.</p></section><div className="pill-row">{tags.map(item => <button className={tag === item ? "active" : ""} onClick={() => setTag(item)} key={item}>{item}</button>)}</div><section className="magazine-grid">{posts.filter(post => tag === "All stories" || post.tag === tag).map((post, i) => <article className={i === 0 ? "magazine-card feature" : "magazine-card"} key={post.title}><img src={post.image} alt=""/><div><p className="eyebrow">{post.tag} · {post.read}</p><h2>{post.title}</h2><p>{post.deck}</p><button>Read story ↗</button></div></article>)}</section><section className="community-cta"><span>Have a question only a local can answer?</span><button onClick={() => go("home")}>Find your China Buddy</button></section></div>;
+  return <div className="community-page"><section className="community-hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(19, 42, 35, .88), rgba(19, 42, 35, .38)), url(${heroImage})` }}><p className="eyebrow">Arctic Tern · Buddy Field Notes</p><h1>China explained<br/><i>by the people in it.</i></h1><p>Practical intelligence, honest recommendations and stories from our local community.</p></section><div className="pill-row">{tags.map(item => <button className={tag === item ? "active" : ""} onClick={() => setTag(item)} key={item}>{item}</button>)}</div><section className="magazine-grid">{posts.filter(post => tag === "All stories" || post.tag === tag).map((post, i) => <article className={i === 0 ? "magazine-card feature" : "magazine-card"} key={post.title}><img src={post.image} alt=""/><div><p className="eyebrow">{post.tag} · {post.read}</p><h2>{post.title}</h2><p>{post.deck}</p><button>Read story ↗</button></div></article>)}</section><section className="community-cta"><span>Have a question only a local can answer?</span><button onClick={() => go("home")}>Find your China Buddy</button></section></div>;
 }
 
 function CheckoutView({ tour, memberLoggedIn, requestSignIn }: { tour: Tour; memberLoggedIn: boolean; requestSignIn: () => void }) {
